@@ -1,0 +1,20 @@
+# Local-only third-party reference documents
+references/source/
+/*.pdf
+
+# Temporary and generated files
+.cache/
+tmp/
+*.tmp
+*.log
+
+# OS metadata
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor metadata
+.idea/
+.vscode/
+*.bak
+*.backup
