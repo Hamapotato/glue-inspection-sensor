@@ -1,14 +1,17 @@
-# Glue Inspection Sensor Reproduction
+# glue-inspection-sensor
 
-基于机器视觉的车身涂胶检测传感器功能复现资料库。
+基于机器视觉的车身涂胶检测传感器开发仓库。
 
-本项目以学位论文《基于机器视觉的车身涂胶在线检测系统研究》为主要依据，整理三相机圆形视觉传感器的硬件选型、接口定义、LED 驱动方案和复现风险。当前阶段聚焦传感器与采集硬件，检测算法和上位机软件尚未实现。
+本项目以学位论文《基于机器视觉的车身涂胶在线检测系统研究》为技术起点，从三相机圆形视觉传感器复现逐步演进到基于 RK3588 的边缘计算产品。
+
+GitHub：[Hamapotato/glue-inspection-sensor](https://github.com/Hamapotato/glue-inspection-sensor)
 
 ## 项目状态
 
 - [x] 阅读并整理相关论文与产品资料
 - [x] 输出功能复现 BOM
 - [x] 给出接口、供电、USB 和 LED 驱动初版方案
+- [x] 制定从论文复现到 RK3588 边缘计算产品的开发路线
 - [ ] 完成机械结构设计
 - [ ] 完成主控板和 LED 灯板原理图、PCB
 - [ ] 完成相机、镜头和照明联调
@@ -34,7 +37,8 @@
 ├── README.md
 ├── .gitattributes              # 统一文本换行和二进制文件处理
 ├── docs/
-│   └── reproduction-bom.md     # 器件清单、接线、PCB 要求和采购顺序
+│   ├── reproduction-bom.md     # 器件清单、接线、PCB 要求和采购顺序
+│   └── product-development-roadmap.md  # RK3588 产品开发路线
 ├── references/
 │   ├── README.md               # 参考资料说明
 │   └── source/                 # 原始 PDF，仅本地保留，不提交到 Git
@@ -44,6 +48,7 @@
 ## 快速入口
 
 - [复现 BOM 与硬件设计说明](docs/reproduction-bom.md)
+- [RK3588 产品开发路线](docs/product-development-roadmap.md)
 - [参考资料与版权说明](references/README.md)
 
 ## 安全提示
