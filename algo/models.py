@@ -70,13 +70,10 @@ class HeuristicRoILocator:
 
 
 class RPNLocator:
-    """RPN 定位（论文 3.1）——待实现。
+    """RPN 定位（论文 3.1）：加载 ``algo.net.rpn`` 的权重做推理。
 
-    实现要点（P3）：
-    - 特征图 → 3x3 卷积 → 两个 1x1 分支（2k 分类 / 4k 回归）；
-    - K-means 生成 9 个先验框（3.1.2）；
-    - DIoU 回归损失（3.1.3）；
-    - CIoU-NMS 筛选（3.1.4，阈值 0.5）。
+    预处理与训练一致：灰度 → letterbox 到 ``locate.input_size`` 的正方形 →
+    前向 → decode → NMS/CIoU-NMS → 映射回原图坐标。
     """
 
     def __init__(self, cfg: Config):
@@ -84,9 +81,54 @@ class RPNLocator:
         self.weights = cfg.get("locate.weights")
         if not self.weights:
             raise ModelNotAvailableError("locate.weights 未配置")
+        self.input_size = int(cfg.get("locate.input_size", 320))
+        self.nms_type = str(cfg.get("locate.nms.type", "ciou_nms"))
+        self.nms_thr = float(cfg.get("locate.nms.thr", 0.5))
+        self.score_thr = float(cfg.get("locate.score_thr", 0.5))
+        self.max_boxes = int(cfg.get("locate.post_nms_topk", 300))
+        self.device = str(cfg.get("runtime.device", "cpu"))
+        self._model = None
 
-    def predict(self, image: np.ndarray) -> list[Box]:  # pragma: no cover - 待 P3 实现
-        raise NotImplementedError("RPN 尚未实现，见 docs/algo/tasks.md B-03")
+    def _ensure_model(self):
+        if self._model is not None:
+            return self._model
+        import torch  # 可选依赖，延迟导入
+
+        from .net.rpn import RPN
+
+        ckpt = torch.load(self.weights, map_location="cpu")
+        model = RPN()
+        model.load_state_dict(ckpt["model"])
+        model.eval()
+        self._model = model
+        return model
+
+    def predict(self, image: np.ndarray) -> list[Box]:
+        import torch
+
+        from .data import letterbox
+        from .net.rpn import ProposalConfig, propose
+
+        model = self._ensure_model()
+        gray = image if image.ndim == 2 else cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        canvas, scale, pad = letterbox(gray, (self.input_size, self.input_size))
+        tensor = torch.from_numpy(canvas.astype(np.float32) / 255.0).unsqueeze(0).unsqueeze(0)
+        with torch.no_grad():
+            cls_logits, reg, anchors, _ = model(tensor)
+            boxes, scores = propose(
+                cls_logits[0], reg[0], anchors, (self.input_size, self.input_size),
+                ProposalConfig(post_nms_topk=self.max_boxes, nms_thr=self.nms_thr,
+                               nms_type=self.nms_type, score_thr=self.score_thr),
+            )
+        boxes = boxes.cpu().numpy()
+        scores = scores.cpu().numpy()
+        if len(boxes):
+            boxes[:, [0, 2]] = (boxes[:, [0, 2]] - pad[0]) / scale
+            boxes[:, [1, 3]] = (boxes[:, [1, 3]] - pad[1]) / scale
+        return [
+            Box(float(b[0]), float(b[1]), float(b[2]), float(b[3]), score=float(s))
+            for b, s in zip(boxes, scores)
+        ]
 
 
 # --------------------------------------------------------------------------- #
@@ -138,9 +180,55 @@ class YOLO5FLDetector:
         self.weights = cfg.get("reflect.weights")
         if not self.weights:
             raise ModelNotAvailableError("reflect.weights 未配置")
+        self.input_size = int(cfg.get("reflect.input_size", 320))
+        self.score_thr = float(cfg.get("reflect.score_thr", 0.5))
+        self.device = str(cfg.get("runtime.device", "cpu"))
+        self._model = None
 
-    def predict(self, image: np.ndarray) -> ReflectionResult:  # pragma: no cover - 待 P4 实现
-        raise NotImplementedError("YOLOv3-5FL 尚未实现，见 docs/algo/tasks.md B-08")
+    def _ensure_model(self):
+        if self._model is not None:
+            return self._model
+        import torch  # 可选依赖，延迟导入
+
+        from .net.yolo import YOLO5FL
+
+        ckpt = torch.load(self.weights, map_location="cpu")
+        model = YOLO5FL(num_levels=int(ckpt.get("num_levels", 5)), use_spp=bool(ckpt.get("use_spp", True)))
+        model.load_state_dict(ckpt["model"])
+        model.eval()
+        self._model = model
+        return model
+
+    def predict(self, image: np.ndarray) -> ReflectionResult:
+        import torch
+
+        from .data import letterbox
+        from .net.common import nms_torch
+        from .net.yolo import decode_yolo
+
+        model = self._ensure_model()
+        gray = image if image.ndim == 2 else cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        canvas, scale, pad = letterbox(gray, (self.input_size, self.input_size))
+        tensor = torch.from_numpy(canvas.astype(np.float32) / 255.0).unsqueeze(0).unsqueeze(0)
+        with torch.no_grad():
+            outputs = model(tensor)
+            decoded = decode_yolo(outputs, (self.input_size, self.input_size),
+                                  anchors=model.anchors, conf_thr=self.score_thr)
+        boxes, scores = decoded[0]
+        if boxes.numel():
+            keep = nms_torch(boxes, scores, 0.5)
+            boxes, scores = boxes[keep], scores[keep]
+        boxes_np = boxes.cpu().numpy()
+        scores_np = scores.cpu().numpy()
+        if len(boxes_np):
+            boxes_np[:, [0, 2]] = (boxes_np[:, [0, 2]] - pad[0]) / scale
+            boxes_np[:, [1, 3]] = (boxes_np[:, [1, 3]] - pad[1]) / scale
+        out = [
+            Box(float(b[0]), float(b[1]), float(b[2]), float(b[3]), score=float(s))
+            for b, s in zip(boxes_np, scores_np)
+        ]
+        return ReflectionResult(has_reflection=bool(out), boxes=out,
+                                max_score=float(scores_np.max()) if scores_np.size else 0.0)
 
 
 # --------------------------------------------------------------------------- #

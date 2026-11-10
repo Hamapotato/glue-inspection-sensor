@@ -1,4 +1,4 @@
-# 算法配置基线（P0）
+﻿# 算法配置基线（P0）
 # 说明：代码中不允许出现业务阈值字面量，一律从这里读取。
 # 带 [假设] 标记的项，论文未给出，属于本次复现自定参数（见 docs/algo/p0-spec.md §5）。
 
@@ -38,6 +38,8 @@ locate:
   enabled: false
   type: heuristic            # rpn | heuristic
   weights: null
+  input_size: 320           # 训练/推理用的正方形输入边长
+  post_nms_topk: 300
   score_thr: 0.5
   nms:
     type: ciou_nms           # nms | ciou_nms（论文 3.1.4）
@@ -51,7 +53,7 @@ reflect:
   type: null_reflector       # yolo5fl | heuristic | null_reflector
   weights: null
   score_thr: 0.5             # [假设]
-  input_size: 416
+  input_size: 320
   high_value: 245            # [假设] heuristic 占位实现的饱和阈值
   min_area_px: 30            # [假设] heuristic 占位实现的最小反光面积
 

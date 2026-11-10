@@ -1,4 +1,4 @@
-# 任务清单（P0 → P5）
+﻿# 任务清单（P0 → P5）
 
 > 用法：每完成一项勾选，并在 PR/commit 信息里引用编号（如 `A-03`）。
 > 估时按"单人、有现场数据可用"估算；数据未到位时 B 组顺延，C 组不受影响。
@@ -47,12 +47,15 @@
 
 ## P3 RoI 定位（2 周）
 
+> 注：B-02~B-04 的模型与工具已实现并通过单元测试（`algo/net/rpn.py`、`tests/test_net.py`）；
+> B-05~B-07 的消融与报告需真实数据训练后才能填写。
+
 | ID | 任务 | 产出 | 验收 |
 |---|---|---|---|
 | [ ] B-01 | 数据集与 DataLoader（按工件划分） | `algo/data.py` | 划分不泄漏 |
-| [ ] B-02 | K-means 先验框 | `algo/geometry.py`（已有） | 9 个 anchor，可视化 |
-| [ ] B-03 | RPN 网络 + DIoU 损失 | `algo/models/rpn.py` | 训练能收敛 |
-| [ ] B-04 | CIoU-NMS 推理 | 同上 | 与标准 NMS 对比图 |
+| [x] B-02 | K-means 先验框 | `algo/geometry.py`（已有） | 9 个 anchor，可视化 |
+| [x] B-03 | RPN 网络 + DIoU 损失 | `algo/net/rpn.py` | 训练能收敛 |
+| [x] B-04 | CIoU-NMS 推理 | 同上 | 与标准 NMS 对比图 |
 | [ ] B-05 | 消融：IoU/GIoU/DIoU/CIoU（表 3-1） | `eval` 脚本 | 4 组 IoU + 耗时 |
 | [ ] B-06 | 消融：NMS vs CIoU-NMS × 阈值（表 3-2） | 同上 | 5 阈值 × 2 方法 |
 | [ ] B-07 | 平均 IoU 评测与报告 | `docs/algo/reports/p3-roi.md` | 对齐 99% 口径 |
@@ -61,9 +64,9 @@
 
 | ID | 任务 | 产出 | 验收 |
 |---|---|---|---|
-| [ ] B-08 | YOLOv3 基线 | `algo/models/yolo.py` | 能训练/推理 |
-| [ ] B-09 | 5 层特征层（YOLOv3-5FL） | 同上 | 5 个输出尺度 |
-| [ ] B-10 | SPP 模块（4/2/1） | 同上 | 21 bin |
+| [x] B-08 | YOLOv3 基线 | `algo/net/yolo.py` | 能训练/推理 |
+| [x] B-09 | 5 层特征层（YOLOv3-5FL） | 同上 | 5 个输出尺度 |
+| [x] B-10 | SPP 模块（4/2/1） | 同上 | 21 bin |
 | [ ] B-11 | 四组消融（表 3-4） | `eval` 脚本 | 逐图 IoU + 耗时 |
 | [ ] B-12 | 反光召回评测 | `docs/algo/reports/p4-reflect.md` | 对齐 97% 口径 |
 
