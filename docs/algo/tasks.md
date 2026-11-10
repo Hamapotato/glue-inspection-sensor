@@ -1,4 +1,4 @@
-# 任务清单（P0 → P5）
+﻿# 任务清单（P0 → P5）
 
 > 用法：每完成一项勾选，并在 PR/commit 信息里引用编号（如 `A-03`）。
 > 估时按"单人、有现场数据可用"估算；数据未到位时 B 组顺延，C 组不受影响。
@@ -12,7 +12,7 @@
 | [x] A-01 | 指标口径定义 | `docs/algo/p0-spec.md` §1 | 评审通过 |
 | [x] A-02 | 假设登记表 | 同上 §5 | A1–A10 有初值 |
 | [x] A-03 | 接口契约 | `docs/algo/interfaces.md` | 三个 Protocol 签名冻结 |
-| [ ] A-04 | 配置基线 | `configs/default.yaml` | 所有阈值可配置，无硬编码 |
+| [x] A-04 | 配置基线 | `configs/default.yaml` | 所有阈值可配置，无硬编码 |
 | [ ] A-05 | 数据目录与 manifest 模板 | `data/README.md` + 空 `manifest.csv` | 字段确认 |
 | [ ] A-06 | 试标 20 张图 | `data/labels/*` | 双人一致，标注规范无歧义 |
 

@@ -49,6 +49,7 @@ GitHub：[Hamapotato/glue-inspection-sensor](https://github.com/Hamapotato/glue-
 
 - [复现 BOM 与硬件设计说明](docs/reproduction-bom.md)
 - [RK3588 产品开发路线](docs/product-development-roadmap.md)
+- [算法复现方案](docs/algo/plan.md)｜[P0 指标与数据规范](docs/algo/p0-spec.md)｜[接口契约](docs/algo/interfaces.md)｜[任务清单](docs/algo/tasks.md)
 - [参考资料与版权说明](references/README.md)
 
 ## 安全提示
