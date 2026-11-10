@@ -1,4 +1,4 @@
-﻿# 算法复现方案（v0.1）
+# 算法复现方案（v0.1）
 
 > 目标：在 `algo/` 下复现《基于机器视觉的车身涂胶在线检测系统研究》第 2–4 章的检测算法，
 > 使仓库从"文档"进入"可运行、可评测、可对照论文指标"的状态。
@@ -237,7 +237,7 @@ else: → OK
 
 ## 7. 仓库当前骨架（v0.2）
 
-已实现并通过单元测试（`py -3 -m unittest discover -s tests`，50 项全绿）：
+已实现并通过单元测试（`py -3 -m unittest discover -s tests`，60 项全绿）：
 
 ```
 algo/
@@ -251,12 +251,13 @@ algo/
 ├─ models.py        RoILocator / ReflectionDetector 接口 + heuristic/null 占位
 ├─ decide.py        断胶 / 宽窄 / 反光复判
 ├─ pipeline.py      单帧流水线（含降级与计时）
-├─ metrics.py       IoU / 样本召回 / MAE·std·max
+├─ metrics.py       IoU / 样本召回 / MAE·std·max / p50-p95 耗时
 ├─ synth.py         五类合成样本（冒烟与测试）
 └─ visualize.py     叠加图
 configs/default.yaml
-scripts/{demo_synthetic,calibrate_board,eval_measure}.py
-tests/              5 个测试模块、50 项用例
+scripts/{demo_synthetic,calibrate_board,eval_measure,run_measure_report}.py
+tests/              6 个测试模块、60 项用例
+data/               README + manifest 模板（图像不入库）
 ```
 
 待补（P3/P4）：
@@ -265,8 +266,9 @@ tests/              5 个测试模块、50 项用例
 algo/data.py            数据集与 DataLoader（按工件划分）
 algo/models/rpn.py      RPN + DIoU 损失 + CIoU-NMS 推理
 algo/models/yolo.py     YOLOv3-5FL + SPP
-docs/algo/reports/      P1/P3/P4 报告
 ```
+
+> P1 报告骨架已就绪：`docs/algo/reports/p1-measure.md`（当前为合成自检，真实指标待现场数据）。
 
 > 合成数据上的端到端冒烟结果（`py -3 scripts/demo_synthetic.py`）：正常 10.16 mm→OK、
 > 过窄 5.90 mm→TOO_NARROW、过宽 13.98 mm→TOO_WIDE、断胶（2 个 RoI）→BROKEN、
