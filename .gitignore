@@ -29,3 +29,7 @@ venv/
 
 # 生成的产物与实验输出
 outputs/
+
+# 数据集：只提交 manifest 与 splits，图像/标注不入库
+data/raw/
+data/labels/

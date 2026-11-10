@@ -75,3 +75,45 @@ def summarize_errors(errors: np.ndarray) -> dict[str, float]:
         "max_mm": float(np.max(abs_err)),
         "n": int(errors.size),
     }
+
+
+def latency_summary(values_ms: Sequence[float]) -> dict[str, float]:
+    """M7：耗时统计（p50 / p95 / 均值 / 最大值）。"""
+    values = np.asarray(list(values_ms), dtype=np.float64)
+    if values.size == 0:
+        return {"p50": 0.0, "p95": 0.0, "mean": 0.0, "max": 0.0, "n": 0}
+    return {
+        "p50": float(np.percentile(values, 50)),
+        "p95": float(np.percentile(values, 95)),
+        "mean": float(np.mean(values)),
+        "max": float(np.max(values)),
+        "n": int(values.size),
+    }
+
+
+def compare_with_thesis(
+    reproduced: dict[str, float],
+    thesis: dict[str, float],
+) -> list[dict[str, float | str]]:
+    """生成"论文值 / 复现值 / 偏差"三列对照（AGENTS.md §6.3 要求）。
+
+    偏差原因列留空，由报告撰写者填写；本函数只负责数值。
+    """
+    rows: list[dict[str, float | str]] = []
+    for key, thesis_value in thesis.items():
+        if key not in reproduced:
+            continue
+        value = reproduced[key]
+        diff = value - thesis_value
+        ratio = diff / thesis_value if thesis_value else float("nan")
+        rows.append(
+            {
+                "metric": key,
+                "thesis": thesis_value,
+                "reproduced": value,
+                "diff": diff,
+                "ratio": ratio,
+                "reason": "",
+            }
+        )
+    return rows
