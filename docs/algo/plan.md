@@ -1,9 +1,17 @@
-﻿# 算法复现方案（v0.1）
+# 算法复现方案（v0.1）
 
 > 目标：在 `algo/` 下复现《基于机器视觉的车身涂胶在线检测系统研究》第 2–4 章的检测算法，
 > 使仓库从"文档"进入"可运行、可评测、可对照论文指标"的状态。
 >
 > 本文只谈算法侧；硬件、结构、RK3588 迁移见 [product-development-roadmap.md](../product-development-roadmap.md)。
+
+**配套文档**（同一目录）：
+
+| 文档 | 内容 |
+|---|---|
+| [p0-spec.md](p0-spec.md) | 指标口径（M1–M10）、数据规范、标注规范、假设登记（A1–A10） |
+| [interfaces.md](interfaces.md) | 三个 Protocol 契约、配置键、结果 JSON、降级策略 |
+| [tasks.md](tasks.md) | P0–P5 任务清单（可勾选）与依赖关系 |
 
 ---
 
