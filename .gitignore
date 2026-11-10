@@ -18,3 +18,11 @@ desktop.ini
 .vscode/
 *.bak
 *.backup
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
