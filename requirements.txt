@@ -1,0 +1,12 @@
+# 核心依赖：传统量测链路（无 GPU、无 torch 也能跑）
+numpy>=1.24
+opencv-python>=4.8
+PyYAML>=6.0
+
+# 深度学习（可选）：P3/P4 阶段再装，按 CUDA 版本选择官方 wheel
+# 参考：https://pytorch.org/get-started/locally/
+# torch>=2.0
+# torchvision>=0.15
+
+# 开发工具（可选）
+# ruff>=0.5

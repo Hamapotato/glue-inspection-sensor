@@ -35,10 +35,18 @@ GitHub：[Hamapotato/glue-inspection-sensor](https://github.com/Hamapotato/glue-
 ```text
 .
 ├── README.md
+├── AGENTS.md                   # AI agent 协作规范（红线、DoD、提问边界）
+├── requirements.txt            # 核心依赖（torch 为可选项）
 ├── .gitattributes              # 统一文本换行和二进制文件处理
+├── algo/                       # 算法实现（标定、预处理、量测、模型、流水线）
+├── configs/                    # 配置基线（阈值集中管理）
+├── scripts/                    # 可执行入口
+├── tests/                      # 单元测试
 ├── docs/
 │   ├── reproduction-bom.md     # 器件清单、接线、PCB 要求和采购顺序
-│   └── product-development-roadmap.md  # RK3588 产品开发路线
+│   ├── product-development-roadmap.md  # RK3588 产品开发路线
+│   ├── hikrobot-usb-camera-comparison.md  # 相机与镜头横向对比
+│   └── algo/                   # 算法复现方案、P0 规范、接口契约、任务清单
 ├── references/
 │   ├── README.md               # 参考资料说明
 │   └── source/                 # 原始 PDF，仅本地保留，不提交到 Git
@@ -50,6 +58,7 @@ GitHub：[Hamapotato/glue-inspection-sensor](https://github.com/Hamapotato/glue-
 - [复现 BOM 与硬件设计说明](docs/reproduction-bom.md)
 - [RK3588 产品开发路线](docs/product-development-roadmap.md)
 - [算法复现方案](docs/algo/plan.md)｜[P0 指标与数据规范](docs/algo/p0-spec.md)｜[接口契约](docs/algo/interfaces.md)｜[任务清单](docs/algo/tasks.md)
+- [AI agent 协作规范](AGENTS.md)
 - [参考资料与版权说明](references/README.md)
 
 ## 安全提示
