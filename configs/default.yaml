@@ -30,8 +30,9 @@ measure:
   skeleton:
     method: zhang_suen       # 文献 [53]
   width:
-    warn_mm: 0.5             # [假设] 双报警线：预警
-    alarm_mm: 1.0            # [假设] 双报警线：报警；论文仅说与标准库比对
+    standard_mm: 10.0        # [假设] 论文表 5-4 的理论宽度为 10±1 mm
+    warn_delta_mm: 0.5       # [假设] 双报警线：预警阈值（相对标准值的偏差）
+    alarm_delta_mm: 1.0      # 报警阈值；与表 5-4 的 ±1 mm 容差一致
 
 locate:
   enabled: false
@@ -51,6 +52,8 @@ reflect:
   weights: null
   score_thr: 0.5             # [假设]
   input_size: 416
+  high_value: 245            # [假设] heuristic 占位实现的饱和阈值
+  min_area_px: 30            # [假设] heuristic 占位实现的最小反光面积
 
 decide:
   broken_min_rois: 2         # 论文 5.3.3：RoI 数量 > 1 判为断胶

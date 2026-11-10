@@ -111,6 +111,7 @@ class FrameResult:
     reflection: ReflectionResult
     roi: Box | None = None
     timings_ms: dict[str, float] = field(default_factory=dict)
+    degradations: list[str] = field(default_factory=list)
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -119,4 +120,5 @@ class FrameResult:
             "reflection": self.reflection.as_dict(),
             "roi": None if self.roi is None else self.roi.as_dict(),
             "timings_ms": dict(self.timings_ms),
+            "degradations": list(self.degradations),
         }

@@ -29,6 +29,14 @@ def _pad_to_even(arr: np.ndarray) -> np.ndarray:
     return arr
 
 
+def _pad_to_multiple(arr: np.ndarray, m: int) -> np.ndarray:
+    h, w = arr.shape
+    ph, pw = (-h) % m, (-w) % m
+    if ph or pw:
+        arr = np.pad(arr, ((0, ph), (0, pw)), mode="reflect")
+    return arr
+
+
 def dwt2_haar(arr: np.ndarray) -> tuple[np.ndarray, tuple[np.ndarray, np.ndarray, np.ndarray]]:
     """单层二维 Haar 小波分解，返回 (LL, (LH, HL, HH))。"""
     a = np.asarray(arr, dtype=np.float64)
@@ -77,10 +85,11 @@ def wavelet_denoise(
     """
     img = _as_gray(img)
     h, w = img.shape[:2]
-    ll = img.astype(np.float64) / 255.0
+    level = max(1, int(level))
+    a = _pad_to_multiple(img.astype(np.float64) / 255.0, 2**level)
     details: list[tuple[np.ndarray, np.ndarray, np.ndarray]] = []
-    for _ in range(max(1, level)):
-        ll, d = dwt2_haar(ll)
+    for _ in range(level):
+        a, d = dwt2_haar(a)
         details.append(d)
 
     processed: list[tuple[np.ndarray, np.ndarray, np.ndarray]] = []
@@ -91,9 +100,9 @@ def wavelet_denoise(
         )
 
     for d in reversed(processed):
-        ll = idwt2_haar(ll, d)
+        a = idwt2_haar(a, d)
 
-    out = np.clip(ll * 255.0, 0, 255)
+    out = np.clip(a * 255.0, 0, 255)
     return out[:h, :w].astype(np.uint8)
 
 
@@ -113,10 +122,35 @@ def median_denoise(img: np.ndarray, ksize: int = 5) -> np.ndarray:
 # --------------------------------------------------------------------------- #
 
 def otsu_threshold(img: np.ndarray) -> tuple[float, np.ndarray]:
-    """最大类间方差法（论文 4.2.1 选用的方法）。"""
+    """最大类间方差法（论文 4.2.1 选用的方法）。
+
+    阈值用直方图直接计算（不依赖 ``cv2.threshold`` 的返回值语义，
+    OpenCV 5 在 OTSU 模式下返回的 retval 与本实现口径不一致）。
+    """
     img = _as_gray(img)
-    thr, mask = cv2.threshold(img, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-    return float(thr), mask
+    hist = np.bincount(img.ravel(), minlength=256).astype(np.float64)
+    total = hist.sum()
+    sum_total = float(np.dot(np.arange(256, dtype=np.float64), hist))
+    weight_bg = 0.0
+    sum_bg = 0.0
+    best_var = -1.0
+    best_thr = 0
+    for t in range(256):
+        weight_bg += hist[t]
+        if weight_bg == 0:
+            continue
+        weight_fg = total - weight_bg
+        if weight_fg == 0:
+            break
+        sum_bg += t * hist[t]
+        mean_bg = sum_bg / weight_bg
+        mean_fg = (sum_total - sum_bg) / weight_fg
+        var = weight_bg * weight_fg * (mean_bg - mean_fg) ** 2
+        if var > best_var:
+            best_var = var
+            best_thr = t
+    mask = np.where(img > best_thr, 255, 0).astype(np.uint8)
+    return float(best_thr), mask
 
 
 def global_threshold(img: np.ndarray, thr: float | None = None) -> tuple[float, np.ndarray]:
@@ -169,15 +203,18 @@ def morph_open_close(mask: np.ndarray, ksize: int = 5, order: str = "open-close"
     开运算：先腐蚀后膨胀，去除小噪点与毛刺；
     闭运算：先膨胀后腐蚀，填补孔洞与断裂。
     """
+    steps = {
+        "open": (cv2.MORPH_OPEN,),
+        "close": (cv2.MORPH_CLOSE,),
+        "open-close": (cv2.MORPH_OPEN, cv2.MORPH_CLOSE),
+        "close-open": (cv2.MORPH_CLOSE, cv2.MORPH_OPEN),
+    }
+    if order not in steps:
+        raise ValueError(f"未知形态学顺序 {order}，可选 {list(steps)}")
     kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (ksize, ksize))
     out = mask
-    if order in ("open-close", "open", "close-open"):
-        if order.startswith("open"):
-            out = cv2.morphologyEx(out, cv2.MORPH_OPEN, kernel)
-        if order != "open":
-            out = cv2.morphologyEx(out, cv2.MORPH_CLOSE, kernel)
-    if order == "close-open":
-        out = cv2.morphologyEx(out, cv2.MORPH_OPEN, kernel)
+    for op in steps[order]:
+        out = cv2.morphologyEx(out, op, kernel)
     return out
 
 
