@@ -98,9 +98,10 @@ class Calibration:
 input:      {resize_long_side, to_gray}
 calib:      {enabled, mm_per_px, pattern:[cols,rows], square_mm}
 preprocess: {denoise:{method,wavelet,level,mode}, segment:{method}, morph:{ksize,order}}
-measure:    {bfs_connectivity, min_area_px, skeleton:{method}, width:{warn_mm,alarm_mm}}
+measure:    {bfs_connectivity, min_area_px, skeleton:{method},
+             width:{standard_mm, warn_delta_mm, alarm_delta_mm}}
 locate:     {enabled, type, weights, score_thr, nms:{type,thr}, anchors:{k,iters}}
-reflect:    {enabled, type, weights, score_thr, input_size}
+reflect:    {enabled, type, weights, score_thr, input_size, high_value, min_area_px}
 decide:     {broken_min_rois, reflection_override}
 runtime:    {device, half}
 ```

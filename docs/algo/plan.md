@@ -1,4 +1,4 @@
-# 算法复现方案（v0.1）
+﻿# 算法复现方案（v0.1）
 
 > 目标：在 `algo/` 下复现《基于机器视觉的车身涂胶在线检测系统研究》第 2–4 章的检测算法，
 > 使仓库从"文档"进入"可运行、可评测、可对照论文指标"的状态。
@@ -235,9 +235,9 @@ else: → OK
 
 ---
 
-## 7. 仓库当前骨架
+## 7. 仓库当前骨架（v0.2）
 
-已创建（未提交）：
+已实现并通过单元测试（`py -3 -m unittest discover -s tests`，50 项全绿）：
 
 ```
 algo/
@@ -245,29 +245,29 @@ algo/
 ├─ types.py         Box / MeasureResult / ReflectionResult / Verdict / FrameResult
 ├─ config.py        YAML 配置加载
 ├─ geometry.py      IoU/GIoU/DIoU/CIoU、编解码、NMS/CIoU-NMS、K-means anchors、anchor 铺设
-└─ preprocess.py    小波去噪 / 中值 / Otsu / 双峰 / 全局阈值 / 开闭运算
-```
-
-待补：
-
-```
-algo/measure.py     BFS 面积、外轮廓、Zhang-Suen 骨架、宽度
-algo/calib.py       标定、重投影误差、mm/px 与单应
-algo/models.py      RoILocator / ReflectionDetector 接口 + RPN / YOLO5FL 实现
-algo/decide.py      判定规则
-algo/pipeline.py    单帧流水线
-algo/metrics.py     IoU / 召回 / MAE / std / max
-algo/synth.py       合成样本（冒烟与测试）
+├─ preprocess.py    小波去噪 / 中值 / Otsu / 双峰 / 全局阈值 / 开闭运算
+├─ measure.py       BFS 面积、外轮廓、Zhang-Suen 骨架、骨架直径长度、宽度
+├─ calib.py         标定、重投影误差、mm/px 与平面单应、结果存取
+├─ models.py        RoILocator / ReflectionDetector 接口 + heuristic/null 占位
+├─ decide.py        断胶 / 宽窄 / 反光复判
+├─ pipeline.py      单帧流水线（含降级与计时）
+├─ metrics.py       IoU / 样本召回 / MAE·std·max
+├─ synth.py         五类合成样本（冒烟与测试）
+└─ visualize.py     叠加图
 configs/default.yaml
-scripts/            demo、标定、评估入口
-tests/              单元测试
+scripts/{demo_synthetic,calibrate_board,eval_measure}.py
+tests/              5 个测试模块、50 项用例
 ```
 
----
+待补（P3/P4）：
 
-## 8. 待决策项
+```
+algo/data.py            数据集与 DataLoader（按工件划分）
+algo/models/rpn.py      RPN + DIoU 损失 + CIoU-NMS 推理
+algo/models/yolo.py     YOLOv3-5FL + SPP
+docs/algo/reports/      P1/P3/P4 报告
+```
 
-1. **B1/B2 实现路线**：自写（忠实、慢）还是改造 torchvision/FasterRCNN 与 ultralytics（快、需说明差异）？
-2. **数据来源**：现在有相机可以采图，还是先用公开/合成数据把代码跑通？
-3. **评测集**：是否已有可复用的现场图/卡尺数据？没有的话，P1 之前必须先建最小测试集。
-
+> 合成数据上的端到端冒烟结果（`py -3 scripts/demo_synthetic.py`）：正常 10.16 mm→OK、
+> 过窄 5.90 mm→TOO_NARROW、过宽 13.98 mm→TOO_WIDE、断胶（2 个 RoI）→BROKEN、
+> 反光+过窄→REFLECTION_SUSPECT。这些数字仅用于验证链路，不能作为指标结论。

@@ -26,3 +26,6 @@ __pycache__/
 .venv/
 venv/
 .pytest_cache/
+
+# 生成的产物与实验输出
+outputs/
