@@ -55,7 +55,7 @@ GitHub：[Hamapotato/glue-inspection-sensor](https://github.com/Hamapotato/glue-
 
 ## 快速入口
 
-- [算法复现进度](docs/algo/progress.md)（含流程框图与完成度）
+- [算法复现阶段性汇报](docs/algo/progress.md)（论文算法、完成进度、流程框图与总结）
 - [算法复现方案](docs/algo/plan.md)｜[P0 指标与数据规范](docs/algo/p0-spec.md)｜[接口契约](docs/algo/interfaces.md)｜[任务清单](docs/algo/tasks.md)
 - [复现 BOM 与硬件设计说明](docs/reproduction-bom.md)
 - [RK3588 产品开发路线](docs/product-development-roadmap.md)
