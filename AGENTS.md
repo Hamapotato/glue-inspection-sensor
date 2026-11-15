@@ -122,6 +122,87 @@ def bbox_diou(box, boxes):
 - [ ] `tasks.md` 对应项已勾选
 - [ ] 若涉及论文对照，报告写清"论文值 / 复现值 / 偏差原因"
 
+### 5.4 GitHub 推送
+
+只有用户明确要求推送时才执行本流程。推送前先确认当前分支、待推送提交和工作区状态；推送失败时保留本地提交，不得使用 `--force`。
+
+#### 推送前检查
+
+```powershell
+git status --short --branch
+git log -1 --oneline
+git remote -v
+```
+
+工作区存在未提交改动时，不得静默扩大提交范围。只提交用户要求的内容，并再次检查：
+
+```powershell
+git diff --check
+git diff --cached --check
+```
+
+#### 自动处理 Windows 系统代理
+
+Git for Windows 不保证继承 Windows 系统代理。遇到以下网络错误时，先检查系统代理，而不是直接要求用户重复确认 VPN 状态：
+
+- `Connection was reset`；
+- `Failed to connect to github.com port 443`；
+- `Recv failure`；
+- `Operation timed out`。
+
+读取系统代理配置：
+
+```powershell
+Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings' `
+  | Select-Object ProxyEnable, ProxyServer
+```
+
+若 `ProxyEnable=1`，从 `ProxyServer` 动态取得代理地址，并检查代理端口是否监听：
+
+```powershell
+Test-NetConnection 127.0.0.1 -Port <代理端口> -InformationLevel Detailed
+```
+
+代理端口可用时，仅对当前 Git 命令传入代理，不修改全局配置：
+
+```powershell
+git -c http.proxy=http://<代理地址>:<端口> `
+    -c https.proxy=http://<代理地址>:<端口> `
+    push origin <分支>
+```
+
+若 `ProxyEnable=0`，先尝试直连。若系统代理已开启但代理端口未监听，明确提示用户 VPN 或代理客户端尚未真正启动，不要反复尝试直连。
+
+`Test-NetConnection github.com -Port 443` 测试的是直连，不能用于判断 HTTP 代理是否可用。需要验证代理链路时使用：
+
+```powershell
+curl.exe --proxy http://<代理地址>:<端口> -I --max-time 20 https://github.com
+```
+
+#### 重试与验证
+
+- 对临时网络错误最多自动重试 3 次；
+- 每次重试前确认本地提交和分支没有变化；
+- 推送成功后必须核对远端提交哈希：
+
+```powershell
+git -c http.proxy=http://<代理地址>:<端口> `
+    -c https.proxy=http://<代理地址>:<端口> `
+    ls-remote origin refs/heads/<分支>
+```
+
+- 本地提交哈希与远端一致，且 `git status --short --branch` 显示已同步，才算推送完成；
+- 认证失败、权限不足、非快进和网络超时必须在最终回复中明确区分；
+- 仅在本机已配置 GitHub SSH 公钥时才尝试 SSH；`Permission denied (publickey)` 表示密钥未配置，不能视为 HTTPS 失败后的通用备用方案。
+
+#### 代理使用原则
+
+- 代理地址和端口从当前系统配置读取，不写死；
+- 默认使用命令级 `git -c` 参数，避免 VPN 关闭后全局 Git 配置失效；
+- 不在日志和文档中写入代理凭据；
+- 不因推送失败执行 `git reset`、`git checkout --` 或强推；
+- 推送失败时，向用户说明本地提交仍然安全，并给出准确阻塞原因。
+
 ---
 
 ## 6. 评测纪律
