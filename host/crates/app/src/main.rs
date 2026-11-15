@@ -27,12 +27,12 @@ fn main() -> eframe::Result {
     }
 
     let options = eframe::NativeOptions {
-        viewport: eframe::egui::ViewportBuilder::default().with_inner_size([1400.0, 900.0]),
+        viewport: eframe::egui::ViewportBuilder::default().with_inner_size([1400.0, 900.0]).with_min_inner_size([1100.0, 700.0]),
         ..Default::default()
     };
     eframe::run_native(
         "涂胶检测上位机",
         options,
-        Box::new(|_cc| Ok(Box::new(ui::HostApp::new()))),
+        Box::new(|cc| Ok(Box::new(ui::HostApp::new(cc)))),
     )
 }
