@@ -212,8 +212,8 @@
 | `glue-infer` | ONNX 推理（YOLO 反光、分割/RPN 拆分） | `Detector::detect()`、`Segmenter::segment()` | core, ort | 与 torch 结果对照 |
 | `glue-camera` | 相机抽象：MVS 实现 + 文件/视频回放 | `FrameSource` trait、`CameraConfig` | core | 回放源可测；FFI 单独测 |
 | `glue-pipeline` | 编排、并行、计时、降级 | `Inspector::inspect()`、`inspect_batch()` | vision, infer, core | 端到端合成图 |
-| `glue-store` | SQLite 记录/统计、图片存档 | `Store::insert()`、`query_stats()` | core | 临时库测试 |
-| `glue-app` | egui 界面与交互状态机 | 无 | pipeline, store, camera | 手工 + 截图 |
+| `glue-store` | SQLite 记录/统计（已实现） | `Store::insert/recent/stats` | core | 内存库测试 |
+| `glue-app` | egui 界面（已实现：检测/配方/历史/统计/设置） | 无 | pipeline, store | 状态单测 + 无头模式 |
 | `glue-cli` | 批量评测、样本生成、基准 | `inspect`/`gen`/`bench` | pipeline | CLI 冒烟 |
 
 **关键 trait**（放在最低层，便于替换与测试）：
@@ -508,7 +508,7 @@ Running →(相机断线)→ Degraded →(重连成功)→ Running
 | M2.5 训练迁移 | C++/libtorch 训练工程（RPN + YOLO）、与 Python 单 batch 数值对照 | 误差 ≤ 1e-5；同数据同超参可收敛 |
 | M3 推理 | `glue-infer`（YOLO 反光 → RPN 拆分） | 与 torch 结果对齐；单帧达标 |
 | M4 相机 | `glue-camera`（MVS FFI、三路、触发） | 连续 8 h 无掉线 |
-| M5 界面 | `glue-app`（5 页面 + 叠加渲染） | 可演示完整闭环 |
+| M5 界面 | `glue-app`（5 页面 + 叠加渲染 + SQLite 历史/统计） | ✅ 文件回放闭环可演示（相机版待接） |
 | M6 集成 | 存储/统计/报警、打包、ARM 交叉编译 | Windows 绿色包；RK3588 跑通 |
 
 ---

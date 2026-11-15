@@ -167,6 +167,20 @@ pub enum VerdictCode {
 }
 
 impl VerdictCode {
+    /// 与 Python 端一致的字符串编码（OK / NO_ROI / BROKEN / ...）。
+    pub fn as_str(self) -> &'static str {
+        match self {
+            VerdictCode::Ok => "OK",
+            VerdictCode::NoRoi => "NO_ROI",
+            VerdictCode::Broken => "BROKEN",
+            VerdictCode::TooNarrow => "TOO_NARROW",
+            VerdictCode::TooWide => "TOO_WIDE",
+            VerdictCode::WarnNarrow => "WARN_NARROW",
+            VerdictCode::WarnWide => "WARN_WIDE",
+            VerdictCode::ReflectionSuspect => "REFLECTION_SUSPECT",
+        }
+    }
+
     pub fn is_defect(self) -> bool {
         !matches!(self, VerdictCode::Ok | VerdictCode::ReflectionSuspect | VerdictCode::NoRoi)
     }

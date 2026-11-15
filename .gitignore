@@ -35,4 +35,4 @@ data/raw/
 data/labels/
 
 # Rust
-host/target/
+target/
