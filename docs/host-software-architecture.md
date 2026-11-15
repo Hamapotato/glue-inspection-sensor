@@ -12,7 +12,7 @@
 | --- | --- | --- | --- |
 | ADR-1 | 上位机用 **Rust** | 无 GC、单二进制、可交叉编译 aarch64、延迟可预测；算法密集场景收益大 | C# / .NET（参考软件）、Python + Qt |
 | ADR-2 | 界面用 **egui**（后续可换 Tauri） | 纯 Rust、单进程、即时模式适合数据密集 HMI；无需 WebView 运行时 | Tauri、Slint、Iced |
-| ADR-3 | **算法双实现**：Python 负责训练与评测，Rust 负责部署推理 | 训练生态在 Python（torch）；部署要求零依赖与低延迟 | 全 Python、全 Rust |
+| ADR-3 | **训练用 C++（libtorch），部署用 Rust** | 训练侧统一到 C++ 工程，避免 Python 运行时依赖；libtorch 提供 autograd/优化器/序列化，无需自研框架 | 全 Python 训练、全 Rust 自研 autograd |
 | ADR-4 | 相机走 **MVS C API FFI** | 沿用现有海康 USB3 相机，不换硬件 | GenICam / Aravis、UVC |
 | ADR-5 | 对外通信：**千兆以太网 JSON + 现场总线网关** | 与 roadmap 一致，PLC 协议不自己实现 | 直连 Profinet/DeviceNet |
 
@@ -51,7 +51,7 @@
 | 定位 | 模板匹配 | RPN（论文 3.1） |
 | 输出 | 界面 + 记录 | 界面 + 记录 + **报警 IO / 现场总线** |
 | 部署 | Windows x64 | Windows x64（首版）+ **aarch64 / RK3588**（目标） |
-| 语言 | C# | Rust（推理与量测）、Python（训练、离线评测） |
+| 语言 | C# | **C++（训练，libtorch）**、Rust（部署与量测）、Python（可选对照/工具） |
 
 ---
 
@@ -69,7 +69,7 @@
 
 - 云端平台、多机协同、远程运维；
 - 自研 PLC 协议栈（走网关模块）；
-- 训练功能（留在 Python）；
+- 云端训练平台（训练在本机 C++ 工程内完成）；
 - 3D 胶条、多胶型（先胶条直线/曲线，后扩展）。
 
 ---
@@ -289,7 +289,83 @@ WAL 模式；批量事务（每 50 条或 200 ms 提交）；统计用索引 `(t
 
 ---
 
-## 8. 推理与模型
+## 8. 训练架构（C++ / libtorch）
+
+> 决策：训练侧从 Python 迁移到 **C++（LibTorch）**，与上位机/部署侧统一为 C++/Rust 技术栈。
+> 说明：**libtorch 是 PyTorch 的 C++ 发行版**（autograd、优化器、序列化、TorchScript 齐全），
+> 不是"从零手写训练框架"——自研 autograd 不做，风险与工作量都不可接受。
+
+### 8.1 工程结构
+
+```
+train-cpp/
+├─ CMakeLists.txt              # find_package(Torch REQUIRED)，C++17/20
+├─ cmake/                      # Torch_DIR、OpenCV、可选 CUDA 的查找脚本
+├─ src/
+│  ├─ data/                    # manifest 读取、标注解析、letterbox、增广
+│  ├─ model/                   # RPN、YOLO5FL + SPP（torch::nn）
+│  ├─ loss/                    # DIoU/CIoU、RPN 采样损失、YOLO obj/cls/box
+│  ├─ train/                   # 训练循环、验证、学习率调度、checkpoint
+│  ├─ eval/                    # M1 平均 IoU、M2 召回、M3 框 IoU、耗时统计
+│  └─ export/                  # TorchScript 导出；ONNX 转换（见 8.4）
+├─ tools/
+│  ├─ train_rpn.cpp            # CLI：训练 RPN
+│  ├─ train_yolo.cpp           # CLI：训练 YOLO5FL+SPP（含消融开关）
+│  ├─ eval.cpp                 # CLI：评测
+│  ├─ gen_dataset.cpp          # 合成样本（与 Python synth 对齐）
+│  └─ export_model.cpp         # CLI：导出
+└─ tests/                      # GoogleTest / Catch2
+```
+
+### 8.2 训练与数据
+
+| 项 | 方案 |
+| --- | --- |
+| 数据格式 | **复用现有 `data/manifest.csv` + `labels/*.json`**，与 Python 端同一份数据，便于对照 |
+| 数据增强 | 水平/垂直翻转、旋转 ±5°、亮度/对比度、噪声、模糊（与论文场景一致）；增强参数进配置 |
+| 采样 | RPN：每图 256 anchor、正负 1:1；YOLO：按正样本数归一化 obj 损失（沿用已验证做法） |
+| 优化器 | AdamW + 余弦退火；梯度裁剪 10.0 |
+| 精度 | FP32 默认；可选 AMP（CUDA） |
+| 设备 | CPU 可跑通；CUDA 训练建议（见 8.5） |
+| 断点 | 每轮存 `last.pt`/`best.pt`（TorchScript 序列化 + 训练状态） |
+| 日志 | 每轮 loss/验证指标写 JSON + 终端输出，字段与 Python `history.json` 一致 |
+
+### 8.3 与 Python 实现的关系
+
+- **C++ 成为训练主实现**；Python（`algo/net/`）保留为**参考实现与对照基准**，不再新增功能；
+- 对照测试：同一份固定 batch 输入，比较 C++/libtorch 与 Python/torch 的 forward 输出、loss、梯度范数（容差 1e-5）；
+- 一旦对照通过，后续模型改动只在 C++ 侧进行，Python 侧冻结。
+
+### 8.4 模型导出与部署衔接
+
+```
+C++ 训练 → TorchScript（.pt）→ ① Rust 侧用 libtorch/tch 直接加载
+                              └→ ② 转 ONNX（一次性脚本）→ Rust ort / RKNN
+```
+
+- **ONNX 导出**：libtorch 不提供完整 ONNX 导出 API，采用"TorchScript → Python 一次性转换"（`torch.jit.load` + `torch.onnx.export`）；这一步只做格式转换，不含训练；
+- 若要求全流程无 Python：Rust 侧用 `tch`（libtorch 绑定）直接加载 TorchScript，RK3588 侧再评估 TorchScript→RKNN 的官方链路（需验证）；
+- 模型契约（`model.json`：输入尺寸、归一化、类别、anchor、阈值）与 Rust 侧共用。
+
+### 8.5 环境与构建
+
+| 项 | 要求 |
+| --- | --- |
+| 编译器 | MSVC 2022（Windows）/ GCC 11+（Linux） |
+| 依赖 | LibTorch（CPU 或 CUDA 版，约 2–3 GB）、OpenCV C++（读图/增广）、CMake ≥ 3.24 |
+| GPU | 有 NVIDIA GPU 建议 CUDA 版 libtorch；无 GPU 用 CPU 版（速度慢 10–30 倍） |
+| CI | 至少保证 CPU 版可编译 + 单元测试通过 |
+
+### 8.6 风险
+
+| 风险 | 影响 | 对策 |
+| --- | --- | --- |
+| libtorch 体积大、部署包臃肿 | 安装包变大 | 训练与部署分离：训练机装 libtorch，部署用 Rust/ONNX |
+| C++ 调试效率低于 Python | 迭代慢 | 先用小数据/单 batch 对照，再扩量 |
+| ONNX 导出缺 Python 步骤 | "全 C++"不彻底 | 明确"训练 C++、导出可借 Python 一次性脚本"；或走 TorchScript 直载 |
+| GPU 环境缺失 | 训练慢 | 先 CPU 跑通流程，拿到 GPU 再扩量 |
+
+## 9. 推理与模型
 
 | 项 | 方案 |
 | --- | --- |
@@ -304,7 +380,7 @@ RPN 接入点：`glue-infer` 输出特征图（cls/reg），Rust 侧做解码 + 
 
 ---
 
-## 9. 相机与触发
+## 10. 相机与触发
 
 | 项 | 方案 |
 | --- | --- |
@@ -319,7 +395,7 @@ RPN 接入点：`glue-infer` 输出特征图（cls/reg），Rust 侧做解码 + 
 
 ---
 
-## 10. 界面设计（egui）
+## 11. 界面设计（egui）
 
 ### 10.1 页面
 
@@ -347,7 +423,7 @@ Running →(相机断线)→ Degraded →(重连成功)→ Running
 
 ---
 
-## 11. 性能设计
+## 12. 性能设计
 
 | 措施 | 说明 |
 | --- | --- |
@@ -361,11 +437,12 @@ Running →(相机断线)→ Degraded →(重连成功)→ Running
 
 ---
 
-## 12. 测试策略
+## 13. 测试策略
 
 | 层 | 方法 | 通过标准 |
 | --- | --- | --- |
 | 单元 | 合成图已知宽度/骨架/连通域 | 误差 ≤ 1 px |
+| 训练对照 | C++/libtorch 与 Python/torch 同一 batch 的 forward/loss/梯度对比 | 误差 ≤ 1e-5 |
 | 双实现对照 | Python `algo` 与 Rust 跑同一批图，比对 JSON | 宽度差 ≤ 1 px、判定一致率 100% |
 | 流水线 | 五类合成用例（正常/窄/宽/断胶/反光） | 判定与预期一致 |
 | 性能 | `bench` 固定机器基线 | 退化 > 20% 报警 |
@@ -374,7 +451,7 @@ Running →(相机断线)→ Degraded →(重连成功)→ Running
 
 ---
 
-## 13. 部署
+## 14. 部署
 
 | 平台 | 方式 |
 | --- | --- |
@@ -385,13 +462,14 @@ Running →(相机断线)→ Degraded →(重连成功)→ Running
 
 ---
 
-## 14. 里程碑
+## 15. 里程碑
 
 | 阶段 | 内容 | 退出条件 |
 | --- | --- | --- |
 | M0 设计（本文件） | 架构、数据模型、接口、里程碑 | 评审通过 |
 | M1 内核 | core/vision/pipeline/cli + 单测 | `cargo test` 全绿；CLI 出 JSON |
 | M2 双实现对照 | Python/Rust 同图比对 | 宽度差 ≤ 1 px、判定一致 |
+| M2.5 训练迁移 | C++/libtorch 训练工程（RPN + YOLO）、与 Python 单 batch 数值对照 | 误差 ≤ 1e-5；同数据同超参可收敛 |
 | M3 推理 | `glue-infer`（YOLO 反光 → RPN 拆分） | 与 torch 结果对齐；单帧达标 |
 | M4 相机 | `glue-camera`（MVS FFI、三路、触发） | 连续 8 h 无掉线 |
 | M5 界面 | `glue-app`（5 页面 + 叠加渲染） | 可演示完整闭环 |
@@ -399,7 +477,7 @@ Running →(相机断线)→ Degraded →(重连成功)→ Running
 
 ---
 
-## 15. 风险与待决
+## 16. 风险与待决
 
 | # | 风险/待决 | 影响 | 处理 |
 | --- | --- | --- | --- |
@@ -417,10 +495,13 @@ Running →(相机断线)→ Degraded →(重连成功)→ Running
 3. **首版范围**：先做"文件回放 + 检测/配方/历史/统计"（不接相机），还是一开始就接三路相机？
 4. **是否需要与 GlueInspect 界面/操作习惯保持一致**（便于老师验收对比）？
 5. **现场总线**：这一版是否需要真实 PLC/机器人 IO，还是先用模拟信号？
+6. **训练迁 C++ 的边界**：是否要求"训练全流程零 Python"（含 ONNX 导出），还是允许"C++ 训练 + Python 一次性格式转换"？
+7. **训练机 GPU**：是否有 NVIDIA GPU（决定装 CUDA 版 libtorch 还是 CPU 版）？
+8. **Python 侧去留**：`algo/net/` 保留为对照基准，还是迁完即删？
 
 ---
 
-## 16. 附录
+## 17. 附录
 
 ### 16.1 目录结构规划
 
@@ -438,6 +519,12 @@ host/
 │  └─ cli/                    # bench / gen / inspect
 ├─ models/                    # 模型（gitignore，按版本）
 └─ recipes/                   # 配方样例
+
+train-cpp/                    # C++ 训练工程（libtorch）
+├─ CMakeLists.txt
+├─ src/{data,model,loss,train,eval,export}
+├─ tools/{train_rpn,train_yolo,eval,export_model,gen_dataset}.cpp
+└─ tests/
 ```
 
 ### 16.2 与 GlueInspect 的模块对照
