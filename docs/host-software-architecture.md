@@ -305,7 +305,7 @@ WAL 模式；批量事务（每 50 条或 200 ms 提交）；统计用索引 `(t
 | ② 图像检查（亮度/过曝/清晰度） | vision | 1 | 参考软件有，我们需要补 |
 | ③ 定位（RPN 或阈值） | infer/vision | 6 | `locate`（假设 A5） |
 | ④ 裁剪与预处理（Otsu、开闭） | vision | 2 | `preprocess` |
-| ⑤ 量测（连通域、骨架、宽度） | vision | 8 | `measure` |
+| ⑤ 量测（连通域、掩膜主方向跨度、宽度） | vision | 8 | `measure`（跨度代替骨架长度，避免端部缩短导致宽度高估） |
 | ⑥ 反光复判（仅缺陷帧） | infer | 6 | `reflect` |
 | ⑦ 判定与组装 | core | 1 | `decide` |
 | ⑧ 显示/存储（异步） | app/store | 2 | — |
@@ -460,6 +460,16 @@ Running →(相机断线)→ Degraded →(重连成功)→ Running
 | SIMD | Otsu 直方图、形态学可向量化（后续用 `std::simd` 或 `wide`） |
 | 推理 | ONNX Runtime 图优化；NPU（RK3588）走 RKNN，Rust 侧 FFI |
 | 基准 | `glue-cli bench` 固定输出 p50/p95/吞吐，进 CI 回归 |
+
+**实测（M1，2026-11-15，1280×960 合成图，Windows x64 release）**：
+
+| 指标 | Rust 版 | Python 版（对照） |
+| --- | --- | --- |
+| p50 | **8.1 ms** | 约 340 ms |
+| p95 | **18.9 ms** | 约 500 ms |
+| 吞吐 | **104 fps** | 约 3 fps |
+
+说明：Python 版瓶颈在 BFS 连通域与骨架细化的 Python 循环；Rust 版把定位、形态学、量测都做成纯 Rust，且量测只在 ROI 掩膜上做。
 
 ---
 

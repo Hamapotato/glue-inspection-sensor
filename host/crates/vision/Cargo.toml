@@ -1,0 +1,10 @@
+﻿[package]
+name = "glue-vision"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+glue-core = { path = "../core" }
+anyhow = { workspace = true }
+image = { workspace = true }
