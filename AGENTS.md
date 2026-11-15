@@ -10,7 +10,7 @@
 ## 0. 开工前必读（按顺序，约 5 分钟）
 
 1. [README.md](README.md) —— 仓库定位与当前进度
-2. [docs/algo/progress.md](docs/algo/progress.md) —— **当前完成度、流程图、卡在哪里**
+2. [docs/algo/progress.md](docs/algo/progress.md) —— **当前完成度、流程图与阻塞项**
 3. [docs/algo/plan.md](docs/algo/plan.md) —— 复现范围与分层架构
 4. [docs/algo/p0-spec.md](docs/algo/p0-spec.md) —— 指标口径（M1–M10）与假设登记（A1–A10）
 5. [docs/algo/interfaces.md](docs/algo/interfaces.md) —— 接口契约与配置键
