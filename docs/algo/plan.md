@@ -9,9 +9,11 @@
 
 | 文档 | 内容 |
 |---|---|
+| [progress.md](progress.md) | **当前进度**（完成度、流程图、文件结构、卡点） |
 | [p0-spec.md](p0-spec.md) | 指标口径（M1–M10）、数据规范、标注规范、假设登记（A1–A10） |
 | [interfaces.md](interfaces.md) | 三个 Protocol 契约、配置键、结果 JSON、降级策略 |
 | [tasks.md](tasks.md) | P0–P5 任务清单（可勾选）与依赖关系 |
+| [figures/algorithm-pipeline.png](figures/algorithm-pipeline.png) | 算法流程框图（`scripts/make_flow_diagram.py` 生成） |
 
 ---
 

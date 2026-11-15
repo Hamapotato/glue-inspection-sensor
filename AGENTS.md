@@ -10,10 +10,11 @@
 ## 0. 开工前必读（按顺序，约 5 分钟）
 
 1. [README.md](README.md) —— 仓库定位与当前进度
-2. [docs/algo/plan.md](docs/algo/plan.md) —— 复现范围与分层架构
-3. [docs/algo/p0-spec.md](docs/algo/p0-spec.md) —— 指标口径（M1–M10）与假设登记（A1–A10）
-4. [docs/algo/interfaces.md](docs/algo/interfaces.md) —— 接口契约与配置键
-5. [docs/algo/tasks.md](docs/algo/tasks.md) —— 当前任务与阻塞项
+2. [docs/algo/progress.md](docs/algo/progress.md) —— **当前完成度、流程图、卡在哪里**
+3. [docs/algo/plan.md](docs/algo/plan.md) —— 复现范围与分层架构
+4. [docs/algo/p0-spec.md](docs/algo/p0-spec.md) —— 指标口径（M1–M10）与假设登记（A1–A10）
+5. [docs/algo/interfaces.md](docs/algo/interfaces.md) —— 接口契约与配置键
+6. [docs/algo/tasks.md](docs/algo/tasks.md) —— 当前任务与阻塞项
 
 ---
 
@@ -21,7 +22,7 @@
 
 - **是什么**：以《基于机器视觉的车身涂胶在线检测系统研究》（天津大学硕士学位论文）为起点的涂胶检测传感器复现项目。
 - **不是什么**：不是论文原作者的代码仓库；论文未公开源码、数据与训练参数。
-- **当前阶段**：算法框架搭建 + P0 规范，尚无训练好的模型。
+- **当前阶段**：P0 规范与 P1 量测链路已完成（60 项测试），P2 大部分完成；B1/B2 模型代码在 `wip/b1-b2` 分支未验证；尚无训练好的模型与真实数据指标。
 - **事实来源**：`references/source/` 下的 PDF（本地，不入库）。一切关于论文的陈述以原文为准。
 
 ---
@@ -191,11 +192,12 @@ py -3 scripts/eval_measure.py --images <dir> --labels <dir> --config configs/def
 ## 10. 目录速查
 
 ```
-algo/            算法实现（types/config/geometry/preprocess/...）
-configs/         默认配置与实验配置
-scripts/         可执行入口
-tests/           单元测试
-docs/algo/       方案、P0 规范、接口、任务
-docs/            BOM、路线图、相机对比
-references/      参考资料（source 不入库）
+algo/              算法实现（types/config/geometry/preprocess/...）
+configs/           默认配置与实验配置
+scripts/           可执行入口（demo / 标定 / 报告 / 流程图）
+tests/             单元测试
+docs/algo/         进度、方案、P0 规范、接口、任务、报告、图表
+docs/              BOM、路线图、相机对比
+data/              数据规范与 manifest（图像不入库）
+references/        参考资料（source 不入库）
 ```
