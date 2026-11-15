@@ -8,6 +8,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Protocol, runtime_checkable
 
 import cv2
@@ -41,6 +42,25 @@ class ReflectionDetector(Protocol):
         ...
 
 
+def _letterbox(image: np.ndarray, size: int) -> tuple[np.ndarray, float, tuple[int, int]]:
+    """等比缩放 + 居中填充到 size×size，返回 (图像, 缩放比, 左上填充)。"""
+    h, w = image.shape[:2]
+    scale = min(size / w, size / h)
+    nw, nh = int(round(w * scale)), int(round(h * scale))
+    resized = cv2.resize(image, (nw, nh), interpolation=cv2.INTER_LINEAR)
+    canvas = np.full((size, size), 114, dtype=np.uint8)
+    px, py = (size - nw) // 2, (size - nh) // 2
+    canvas[py:py + nh, px:px + nw] = resized
+    return canvas, scale, (px, py)
+
+
+def _unletterbox_boxes(boxes: np.ndarray, scale: float, pad: tuple[int, int]) -> np.ndarray:
+    out = boxes.copy()
+    out[:, [0, 2]] = (boxes[:, [0, 2]] - pad[0]) / max(scale, 1e-9)
+    out[:, [1, 3]] = (boxes[:, [1, 3]] - pad[1]) / max(scale, 1e-9)
+    return out
+
+
 # --------------------------------------------------------------------------- #
 # RoI 定位
 # --------------------------------------------------------------------------- #
@@ -70,23 +90,70 @@ class HeuristicRoILocator:
 
 
 class RPNLocator:
-    """RPN 定位（论文 3.1）——待实现。
+    """RPN 定位（论文 3.1），加载 ``locate.weights`` 指向的权重。
 
-    实现要点（P3）：
-    - 特征图 → 3x3 卷积 → 两个 1x1 分支（2k 分类 / 4k 回归）；
-    - K-means 生成 9 个先验框（3.1.2）；
-    - DIoU 回归损失（3.1.3）；
-    - CIoU-NMS 筛选（3.1.4，阈值 0.5）。
+    - 结构：4 层 stride=2 卷积（stride 16）→ 3×3 → 分类/回归双头（见 ``algo.net.rpn``）；
+    - 先验框：默认 9 个，可用 ``anchors_from_kmeans`` 由训练集统计；
+    - 回归损失：DIoU（论文 3.1.3）；
+    - 候选筛选：CIoU-NMS，阈值 0.5（论文 3.1.4、表 3-2）。
+
+    torch 与权重缺一不可，缺失时抛 ``ModelNotAvailableError``，由工厂降级。
     """
 
     def __init__(self, cfg: Config):
         self.cfg = cfg
-        self.weights = cfg.get("locate.weights")
-        if not self.weights:
+        weights = cfg.get("locate.weights")
+        if not weights:
             raise ModelNotAvailableError("locate.weights 未配置")
+        path = Path(str(weights))
+        if not path.exists():
+            raise ModelNotAvailableError(f"locate.weights 文件不存在：{path}")
+        try:
+            import torch  # noqa: F401
 
-    def predict(self, image: np.ndarray) -> list[Box]:  # pragma: no cover - 待 P3 实现
-        raise NotImplementedError("RPN 尚未实现，见 docs/algo/tasks.md B-03")
+            from .net.rpn import RPN, ProposalConfig
+        except Exception as exc:  # pragma: no cover - 环境相关
+            raise ModelNotAvailableError(f"torch 或 algo.net 不可用（{exc}）") from exc
+
+        self.model = RPN.load(path)
+        self.input_size = int(cfg.get("locate.input_size", 320))
+        self.score_thr = float(cfg.get("locate.score_thr", 0.5))
+        self.max_rois = int(cfg.get("locate.max_rois", 10))
+        self.proposal_cfg = ProposalConfig(
+            nms_type=str(cfg.get("locate.nms.type", "ciou_nms")),
+            nms_thr=float(cfg.get("locate.nms.thr", 0.5)),
+        )
+
+    def predict(self, image: np.ndarray) -> list[Box]:
+        import torch
+
+        from .net.rpn import propose
+
+        gray = image if image.ndim == 2 else cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        canvas, scale, pad = _letterbox(gray, self.input_size)
+        tensor = torch.from_numpy(canvas.astype(np.float32) / 255.0)[None, None]
+        with torch.no_grad():
+            cls_logits, reg, anchors, _ = self.model(tensor)
+            boxes, scores = propose(cls_logits[0], reg[0], anchors,
+                                    (self.input_size, self.input_size), self.proposal_cfg)
+        if boxes.numel() == 0:
+            return []
+        np_boxes = _unletterbox_boxes(boxes.cpu().numpy().astype(np.float64), scale, pad)
+        np_scores = scores.cpu().numpy().astype(np.float64)
+        h, w = gray.shape[:2]
+        out: list[Box] = []
+        for (x1, y1, x2, y2), score in zip(np_boxes, np_scores):
+            if score < self.score_thr:
+                continue
+            x1, x2 = float(np.clip(x1, 0, w)), float(np.clip(x2, 0, w))
+            y1, y2 = float(np.clip(y1, 0, h)), float(np.clip(y2, 0, h))
+            if x2 - x1 < 4 or y2 - y1 < 4:
+                continue
+            out.append(Box(x1, y1, x2, y2, score=float(score)))
+            if len(out) >= self.max_rois:
+                break
+        out.sort(key=lambda b: -b.score)
+        return out
 
 
 # --------------------------------------------------------------------------- #
@@ -125,22 +192,59 @@ class HeuristicReflector:
 
 
 class YOLO5FLDetector:
-    """YOLOv3-5FL + SPP 反光检测（论文 3.3）——待实现。
+    """YOLOv3-5FL + SPP 反光检测（论文 3.3），加载 ``reflect.weights``。
 
-    实现要点（P4）：
-    - Darknet-53 + FPN，输出 5 个尺度（3.3.2，图 3-20）；
-    - SPP 采用 4x4 / 2x2 / 1x1 池化（3.3.3，图 3-21）；
-    - 只判"是否存在反光 + 定位"，不做修复（3.3.4、6.2）。
+    - 结构：5 个输出尺度 + SPP（见 ``algo.net.yolo``），与论文 3.3.2/3.3.3 对应；
+    - 只判"是否存在反光 + 定位"，不做修复（论文 3.3.4、6.2）；
+    - 推理含 NMS，阈值来自 ``reflect.score_thr`` 与配置。
+
+    torch 与权重缺一不可，缺失时抛 ``ModelNotAvailableError``，由工厂降级。
     """
 
     def __init__(self, cfg: Config):
         self.cfg = cfg
-        self.weights = cfg.get("reflect.weights")
-        if not self.weights:
+        weights = cfg.get("reflect.weights")
+        if not weights:
             raise ModelNotAvailableError("reflect.weights 未配置")
+        path = Path(str(weights))
+        if not path.exists():
+            raise ModelNotAvailableError(f"reflect.weights 文件不存在：{path}")
+        try:
+            import torch  # noqa: F401
 
-    def predict(self, image: np.ndarray) -> ReflectionResult:  # pragma: no cover - 待 P4 实现
-        raise NotImplementedError("YOLOv3-5FL 尚未实现，见 docs/algo/tasks.md B-08")
+            from .net.yolo import YOLO5FL
+        except Exception as exc:  # pragma: no cover - 环境相关
+            raise ModelNotAvailableError(f"torch 或 algo.net 不可用（{exc}）") from exc
+
+        self.model = YOLO5FL.load(path)
+        self.input_size = int(cfg.get("reflect.input_size", 416))
+        self.score_thr = float(cfg.get("reflect.score_thr", 0.5))
+        self.max_det = int(cfg.get("reflect.max_det", 20))
+
+    def predict(self, image: np.ndarray) -> ReflectionResult:
+        import torch
+
+        from .net.yolo import detect
+
+        gray = image if image.ndim == 2 else cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        canvas, scale, pad = _letterbox(gray, self.input_size)
+        tensor = torch.from_numpy(canvas.astype(np.float32) / 255.0)[None, None]
+        result = detect(self.model, tensor, conf_thr=self.score_thr,
+                        nms_thr=float(self.cfg.get("reflect.nms_thr", 0.5)),
+                        max_det=self.max_det)[0]
+        boxes_np = result["boxes"].cpu().numpy().astype(np.float64)
+        scores_np = result["scores"].cpu().numpy().astype(np.float64)
+        h, w = gray.shape[:2]
+        boxes: list[Box] = []
+        for (x1, y1, x2, y2), score in zip(boxes_np, scores_np):
+            x1, x2 = float(np.clip(x1, 0, w)), float(np.clip(x2, 0, w))
+            y1, y2 = float(np.clip(y1, 0, h)), float(np.clip(y2, 0, h))
+            if x2 - x1 < 2 or y2 - y1 < 2:
+                continue
+            boxes.append(Box(x1, y1, x2, y2, score=float(score)))
+        boxes.sort(key=lambda b: -b.score)
+        max_score = max((b.score for b in boxes), default=0.0)
+        return ReflectionResult(has_reflection=bool(boxes), boxes=boxes, max_score=float(max_score))
 
 
 # --------------------------------------------------------------------------- #
