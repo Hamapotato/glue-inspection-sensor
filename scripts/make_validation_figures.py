@@ -1,9 +1,8 @@
 """生成验证结果配图（docs/algo/figures/validation-*.png）。
 
-三张图全部由实际代码运行产生，可重复生成：
+两张图全部由实际代码运行产生，可重复生成：
     1. validation-five-cases.png    五类合成用例的端到端检测结果
     2. validation-preprocessing.png 预处理与量测各阶段中间结果
-    3. validation-calibration.png   标定重投影误差与内参恢复情况
 
 用法：
     py -3 scripts/make_validation_figures.py
@@ -22,7 +21,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 
-from algo.calib import Calibration, calibrate_from_points
+from algo.calib import Calibration
 from algo.config import load_config
 from algo.measure import skeleton_length, zhang_suen_thinning
 from algo.pipeline import GlueInspector
@@ -114,49 +113,9 @@ def fig_preprocessing() -> Path:
     return path
 
 
-def fig_calibration() -> Path:
-    """合成标定点 → 标定 → 画逐视图重投影误差。"""
-    K_true = np.array([[800.0, 0, 320], [0, 800.0, 240], [0, 0, 1]], dtype=np.float64)
-    cols, rows, square = 9, 6, 5.0
-    objp = np.zeros((cols * rows, 3), np.float32)
-    objp[:, :2] = np.mgrid[0:cols, 0:rows].T.reshape(-1, 2) * square
-
-    objs, imgs = [], []
-    rng = np.random.default_rng(0)
-    for i in range(8):
-        rvec = np.array([0.10 * ((i % 3) - 1), 0.10 * ((i // 3) - 1), 0.02 * i], dtype=np.float64)
-        tvec = np.array([0.0, 0.0, 400.0 + 10.0 * i], dtype=np.float64)
-        pts, _ = cv2.projectPoints(objp, rvec, tvec, K_true, None)
-        # 加入 0.1 px 的角点检测噪声，模拟真实的棋盘格角点定位误差
-        pts = pts + rng.normal(0.0, 0.1, size=pts.shape)
-        objs.append(objp)
-        imgs.append(pts.reshape(-1, 2))
-
-    calib = calibrate_from_points(objs, imgs, (640, 480))
-
-    fig, ax = plt.subplots(figsize=(8.2, 4.2), dpi=150)
-    xs = np.arange(1, len(calib.per_view_errors) + 1)
-    ax.bar(xs, calib.per_view_errors, color="#42a5f5", edgecolor="#1565c0", width=0.6)
-    ax.set_xlabel("视图编号")
-    ax.set_ylabel("重投影误差 RMS（像素）")
-    ax.set_ylim(0, max(0.30, max(calib.per_view_errors) * 1.6))
-    ax.set_xticks(xs)
-    ax.grid(axis="y", linestyle=":", alpha=0.6)
-    ax.set_title(
-        f"标定重投影误差（整体 RMS = {calib.rms:.4f} px）\n"
-        f"恢复内参 fx = {calib.K[0, 0]:.1f}（真值 800.0），mm/px = {calib.mm_per_px:.4f}",
-        fontsize=11.5,
-    )
-    fig.tight_layout()
-    path = OUT_DIR / "validation-calibration.png"
-    fig.savefig(path, bbox_inches="tight", facecolor="white")
-    plt.close(fig)
-    return path
-
-
 def main() -> int:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
-    for fn in (fig_five_cases, fig_preprocessing, fig_calibration):
+    for fn in (fig_five_cases, fig_preprocessing):
         print(f"saved {fn()}")
     return 0
 
