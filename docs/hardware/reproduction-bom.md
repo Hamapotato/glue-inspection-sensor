@@ -17,8 +17,8 @@
 
 | 类别 | 建议型号 | 数量 | 说明 | 采购链接 |
 |---|---|---:|---|---|
-| 工业相机 | HIKROBOT MV-CB013-20UM-S | 3 | 论文原型号，130 万像素、1280×960、USB3.0、黑白板级相机 | [海康机器人产品页](https://www.hikrobotics.com/cn/machinevision/visionproduct/?typeId=27&id=259) |
-| 镜头 | Evetar M13B0618IR，6 mm、F1.8、1/3"、S-mount | 3 | 工作距离约 120 mm 时，视野接近论文的 100×80 mm | [Evetar 官网](https://www.evetar.com/en/index.html)、[Evetar 镜头目录](https://www.baslerweb.cn/zh-cn/lenses/evetar/) |
+| 工业相机 | HIKROBOT MV-CB016-10UM-S | 3 | 当前选用型号；1440×1080、约 160 万像素、USB3.0、黑白板级相机。论文原型号为 MV-CB013-20UM-S | [海康机器人产品页](https://www.hikrobotics.com/cn/machinevision/productdetail?id=11540) |
+| 镜头 | 6 mm、F2.8、1/2.9" 或更大像场、M12×0.5 | 3 | 首台使用对标 MVL-HF0628-05S 的中性镜头；工作距离约 135 mm 时接近目标视野 | 按实际采购型号记录 |
 | 红色 LED | HL-C3535F15R3GA-ZW，655–665 nm、3 W | 30 | 灯板照片可辨认 L01–L26，建议 26 颗使用、4 颗备用。典型 2.5 V/700 mA | [嘉立创 C5445086](https://item.szlcsc.com/6339347.html) |
 | LED 恒流驱动器 | PT4115EE89E，50 V/1.5 A | 5 | 建议按 8+9+9 颗分三串；初版每串约 500 mA，留 2 颗备用 | [嘉立创 C126161](https://item.szlcsc.com/137441.html) |
 | 相机触发光耦 | EL817(C)-F，DIP-4 | 8 | 三路相机触发、一路灯板使能，另备 4 颗 | [嘉立创 C181890](https://item.szlcsc.com/193287.html) |
@@ -153,7 +153,7 @@ LED 应在相机曝光期间同步点亮，建议控制脉冲宽度在几毫秒�
 
 ## 十、主要风险
 
-1. **原型号供应风险**：MV-CB013-20UM 和 Evetar 原镜头可能需要通过库存、代理或二手渠道采购。
+1. **相机与镜头一致性风险**：三台相机必须保持同一型号、固件和成像参数；M12 镜头需逐支检查合焦、暗角和像场覆盖。
 2. **USB3.0 稳定性风险**：三台相机长时间同时采集时，供电不足、线缆质量差或 Hub 不稳定会造成掉线和丢帧。
 3. **散热风险**：LED 灯板功率较大，铝基板和外壳散热不足会导致亮度漂移。
 4. **触发时序风险**：相机曝光和 LED 频闪不同步会导致亮度不一致或图像拖影。

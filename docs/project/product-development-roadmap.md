@@ -2,9 +2,9 @@
 
 > 目标：以天津大学《基于机器视觉的车身涂胶在线检测系统研究》为技术起点，先完成可验证的传感器样机，再演进为基于 RK3588 的边缘计算产品，最终在检测能力、操作方式、数据追溯和现场集成上对标易思维 ISV 涂胶检测系统。
 >
-> 产品对标资料：[glue-inspection-product-brochure-v3.3.pdf](../references/source/glue-inspection-product-brochure-v3.3.pdf)
+> 产品对标资料：[glue-inspection-product-brochure-v3.3.pdf](../../references/source/glue-inspection-product-brochure-v3.3.pdf)
 >
-> 技术复现资料：[thesis-machine-vision-glue-inspection.pdf](../references/source/thesis-machine-vision-glue-inspection.pdf)
+> 技术复现资料：[thesis-machine-vision-glue-inspection.pdf](../../references/source/thesis-machine-vision-glue-inspection.pdf)
 
 ## 1. 项目定义
 

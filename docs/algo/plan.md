@@ -3,7 +3,7 @@
 > 目标：在 `algo/` 下复现《基于机器视觉的车身涂胶在线检测系统研究》第 2–4 章的检测算法，
 > 使仓库从"文档"进入"可运行、可评测、可对照论文指标"的状态。
 >
-> 本文只谈算法侧；硬件、结构、RK3588 迁移见 [product-development-roadmap.md](../product-development-roadmap.md)。
+> 本文只谈算法侧；硬件、结构、RK3588 迁移见 [product-development-roadmap.md](../project/product-development-roadmap.md)。
 
 **配套文档**（同一目录）：
 

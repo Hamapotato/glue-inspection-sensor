@@ -15,6 +15,8 @@
 4. [docs/algo/p0-spec.md](docs/algo/p0-spec.md) —— 指标口径（M1–M10）与假设登记（A1–A15）
 5. [docs/algo/interfaces.md](docs/algo/interfaces.md) —— 接口契约与配置键
 6. [docs/algo/tasks.md](docs/algo/tasks.md) —— 当前任务与阻塞项
+7. [docs/algo/calibration-plan.md](docs/algo/calibration-plan.md) —— 单相机标定、采图和尺寸验证流程
+8. [docs/algo/algorithm-and-calibration-report.md](docs/algo/algorithm-and-calibration-report.md) —— 当前算法成果与近期工作汇报
 
 ---
 
@@ -22,7 +24,7 @@
 
 - **是什么**：以《基于机器视觉的车身涂胶在线检测系统研究》（天津大学硕士学位论文）为起点的涂胶检测传感器复现项目。
 - **不是什么**：不是论文原作者的代码仓库；论文未公开源码、数据与训练参数。
-- **当前阶段**：P0 规范与 P1 量测链路已完成（65 项测试），P2 大部分完成；B1/B2 模型代码在 `wip/b1-b2` 分支未验证；尚无训练好的模型与真实数据指标。
+- **当前阶段**：P0 规范与 P1 传统量测链路已完成可运行原型（65 项测试），P2 大部分完成；首台相机和 MVS 已就绪，正在进入单相机标定与真实数据验证。B1/B2 模型代码在 `wip/b1-b2` 分支未验证；尚无训练好的模型与真实数据指标。
 - **事实来源**：`references/source/` 下的 PDF（本地，不入库）。一切关于论文的陈述以原文为准。
 
 ---
@@ -51,7 +53,9 @@
 | `scripts/` | 可执行入口 | 只做编排，不放算法逻辑 |
 | `tests/` | 单元测试 | 新增模块必须带测试 |
 | `docs/algo/` | 算法文档 | 与代码同步更新；`tasks.md` 勾选 |
-| `docs/*.md`（其余） | BOM / 路线图 / 相机对比 | 仅在明确任务下修改 |
+| `docs/hardware/` | BOM、采购、相机与镜头选型 | 仅在明确任务下修改 |
+| `docs/project/` | 产品路线、导师汇报和项目管理材料 | 仅在明确任务下修改 |
+| `docs/README.md` | 文档总索引 | 新增顶层文档时同步维护 |
 | `references/` | 参考资料说明 | **不改**；`references/source/` 不提交 |
 | `data/`（待建） | 数据与标注 | 只提交 manifest 与划分文件，不提交图像 |
 
@@ -99,7 +103,7 @@ def bbox_diou(box, boxes):
 ### 5.1 分支
 
 - 不直接改 `main`。分支命名：`feat/<主题>`、`fix/<主题>`、`docs/<主题>`、`chore/<主题>`。
-- 当前工作分支：`feat/algorithm-reproduction`。
+- 当前集成分支：`main`。新的功能、修复和文档工作从 `main` 创建独立分支。
 
 ### 5.2 提交
 
@@ -197,7 +201,8 @@ configs/           默认配置与实验配置
 scripts/           可执行入口（demo / 标定 / 报告 / 流程图）
 tests/             单元测试
 docs/algo/         进度、方案、P0 规范、接口、任务、报告、图表
-docs/              BOM、路线图、相机对比
+docs/hardware/     BOM、采购记录、相机与镜头选型
+docs/project/      产品路线、导师汇报和项目管理材料
 data/              数据规范与 manifest（图像不入库）
 references/        参考资料（source 不入库）
 ```
