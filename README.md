@@ -64,6 +64,7 @@ GitHub：[Hamapotato/glue-inspection-sensor](https://github.com/Hamapotato/glue-
 - [单相机标定与尺寸验证计划](docs/algo/calibration-plan.md)
 - [算法复现阶段性汇报](docs/algo/progress.md)
 - [算法复现方案](docs/algo/plan.md)｜[P0 指标与数据规范](docs/algo/p0-spec.md)｜[接口契约](docs/algo/interfaces.md)｜[任务清单](docs/algo/tasks.md)
+- [上位机软件架构（Rust）](docs/host-software-architecture.md)
 - [RK3588 部署调研（相机链路到算法落地）](docs/rk3588-deployment-research.md)
 - [复现 BOM 与硬件设计说明](docs/hardware/reproduction-bom.md)
 - [首台相机采购清单](docs/hardware/first-procurement-list.md)
