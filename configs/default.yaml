@@ -39,6 +39,8 @@ locate:
   enabled: false
   type: heuristic            # rpn | heuristic
   weights: null
+  input_size: 320            # RPN 输入边长（等比缩放 + 填充）
+  max_rois: 10               # 单帧最多输出的 RoI 数
   score_thr: 0.5
   nms:
     type: ciou_nms           # nms | ciou_nms（论文 3.1.4）
@@ -52,6 +54,8 @@ reflect:
   type: null_reflector       # yolo5fl | heuristic | null_reflector
   weights: null
   score_thr: 0.5             # [假设]
+  nms_thr: 0.5               # 推理 NMS 阈值
+  max_det: 20                # 单帧最多输出的反光框数
   input_size: 416
   high_value: 245            # [假设] heuristic 占位实现的饱和阈值
   min_area_px: 30            # [假设] heuristic 占位实现的最小反光面积
