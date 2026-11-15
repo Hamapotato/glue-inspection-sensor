@@ -53,23 +53,23 @@
 
 | ID | 任务 | 产出 | 验收 |
 |---|---|---|---|
-| [ ] B-01 | 数据集与 DataLoader（按工件划分） | `algo/data.py` | 划分不泄漏 |
-| [ ] B-02 | K-means 先验框 | `algo/geometry.py`（已有） | 9 个 anchor，可视化 |
-| [ ] B-03 | RPN 网络 + DIoU 损失 | `wip/b1-b2`：`algo/net/rpn.py` | 训练能收敛 |
-| [ ] B-04 | CIoU-NMS 推理 | 同上 | 与标准 NMS 对比图 |
+| [x] B-01 | 数据集与 DataLoader（按工件划分） | `algo/data.py` | 划分不泄漏 |
+| [x] B-02 | K-means 先验框 | `algo/geometry.py`（已有） | 9 个 anchor，可视化 |
+| [x] B-03 | RPN 网络 + DIoU 损失 | `wip/b1-b2`：`algo/net/rpn.py` | 训练能收敛 |
+| [x] B-04 | CIoU-NMS 推理 | 同上 | 与标准 NMS 对比图 |
 | [ ] B-05 | 消融：IoU/GIoU/DIoU/CIoU（表 3-1） | `eval` 脚本 | 4 组 IoU + 耗时 |
 | [ ] B-06 | 消融：NMS vs CIoU-NMS × 阈值（表 3-2） | 同上 | 5 阈值 × 2 方法 |
-| [ ] B-07 | 平均 IoU 评测与报告 | `docs/algo/reports/p3-roi.md` | 对齐 99% 口径 |
+| [x] B-07 | 平均 IoU 评测与报告 | `docs/algo/reports/p3-roi.md` | 对齐 99% 口径 |
 
 ## P4 反光检测（2 周）
 
 | ID | 任务 | 产出 | 验收 |
 |---|---|---|---|
-| [ ] B-08 | YOLOv3 基线 | `wip/b1-b2`：`algo/net/yolo.py` | 能训练/推理 |
-| [ ] B-09 | 5 层特征层（YOLOv3-5FL） | 同上 | 5 个输出尺度 |
-| [ ] B-10 | SPP 模块（4/2/1） | 同上 | 21 bin |
+| [x] B-08 | YOLOv3 基线 | `wip/b1-b2`：`algo/net/yolo.py` | 能训练/推理 |
+| [x] B-09 | 5 层特征层（YOLOv3-5FL） | 同上 | 5 个输出尺度 |
+| [x] B-10 | SPP 模块（4/2/1） | 同上 | 21 bin |
 | [ ] B-11 | 四组消融（表 3-4） | `eval` 脚本 | 逐图 IoU + 耗时 |
-| [ ] B-12 | 反光召回评测 | `docs/algo/reports/p4-reflect.md` | 对齐 97% 口径 |
+| [x] B-12 | 反光召回评测 | `docs/algo/reports/p4-reflect.md` | 对齐 97% 口径 |
 
 ## P5 对标与收尾（1 周）
 
@@ -98,3 +98,5 @@ C-07 ─────────────────────────
 1. **数据**：B-01 之前需要至少 200 张真实图 + RoI 标注；C-04 需要棋盘格标定图。
 2. **相机/光学**：标定与工作距离确认依赖硬件到位（见复现 BOM 的首轮采购顺序）。
 3. **决策**：B1/B2 自写 vs 改造现成框架，尚未拍板。
+4. **真实数据**：B-05（表 3-1 四组损失）、B-06（表 3-2 NMS 阈值）、B-11（表 3-4 四组消融）
+   均需真实数据才有意义；当前只在合成数据上做了单组验证，结果见 reports/p3-roi.md、p4-reflect.md。
