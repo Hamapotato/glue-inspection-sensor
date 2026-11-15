@@ -423,6 +423,9 @@ RPN 接入点：`glue-infer` 输出特征图（cls/reg），Rust 侧做解码 + 
 
 ## 11. 界面设计（egui）
 
+交互框图：[host-ui-flow.png](host-ui-flow.png)（由 `scripts/make_host_ui_diagram.py` 生成）
+
+
 ### 10.1 页面
 
 | 页面 | 内容 |
