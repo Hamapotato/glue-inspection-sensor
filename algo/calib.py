@@ -74,6 +74,61 @@ class Calibration:
         return cls.from_dict(json.loads(Path(path).read_text(encoding="utf-8")))
 
 
+def two_point_scale(
+    point_a_mm: Sequence[float],
+    point_b_mm: Sequence[float],
+    point_a_px: Sequence[float],
+    point_b_px: Sequence[float],
+) -> float:
+    """两点比值法求毫米/像素，对应论文式 (4-13)~(4-15)。
+
+    论文在标定靶上沿胶条方向取 A、B 两点，用世界坐标距离 |AB|（mm）与像素距离
+    |A'B'|（像素）的比值作为该位置的映射标准值（4.3.2）。
+
+    返回 mm/px；两点像素距离为 0 时抛出 ValueError。
+    """
+    a_mm = np.asarray(point_a_mm, dtype=np.float64).reshape(-1)
+    b_mm = np.asarray(point_b_mm, dtype=np.float64).reshape(-1)
+    a_px = np.asarray(point_a_px, dtype=np.float64).reshape(-1)
+    b_px = np.asarray(point_b_px, dtype=np.float64).reshape(-1)
+    dim = min(a_mm.size, b_mm.size)
+    dist_mm = float(np.linalg.norm(a_mm[:dim] - b_mm[:dim]))
+    dist_px = float(np.linalg.norm(a_px - b_px))
+    if dist_px <= 0:
+        raise ValueError("两点像素距离为 0，无法计算映射比值")
+    return dist_mm / dist_px
+
+
+@dataclass
+class MappingTable:
+    """映射数据库：按检测位置保存毫米/像素比值（论文 4.3.2 的"映射标准值"）。
+
+    涂胶检测中每个固定位置的胶条方向基本固定，因此论文按位置分别保存比值；
+    本类提供读写，供 ``measure`` 按工位取用。
+    """
+
+    entries: dict[str, float] = field(default_factory=dict)
+
+    def add(self, position: str, mm_per_px: float) -> None:
+        if mm_per_px <= 0:
+            raise ValueError("毫米/像素比值必须为正")
+        self.entries[str(position)] = float(mm_per_px)
+
+    def get(self, position: str) -> float | None:
+        return self.entries.get(str(position))
+
+    def to_dict(self) -> dict:
+        return {"entries": dict(self.entries)}
+
+    def save(self, path: str | Path) -> None:
+        Path(path).write_text(json.dumps(self.to_dict(), ensure_ascii=False, indent=2), encoding="utf-8")
+
+    @classmethod
+    def load(cls, path: str | Path) -> "MappingTable":
+        data = json.loads(Path(path).read_text(encoding="utf-8"))
+        return cls(entries={str(k): float(v) for k, v in data.get("entries", {}).items()})
+
+
 def scale_from_homography(H: np.ndarray, image_size: tuple[int, int], grid: int = 9) -> float:
     """由平面单应估计视野内的平均毫米/像素（在图像上采样若干点取均值）。"""
     H = np.asarray(H, dtype=np.float64)

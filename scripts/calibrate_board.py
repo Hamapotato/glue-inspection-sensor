@@ -34,9 +34,9 @@ def collect(paths: list[str]) -> list[Path]:
 def main() -> int:
     parser = argparse.ArgumentParser(description="棋盘格标定")
     parser.add_argument("--images", nargs="+", required=True, help="图像目录或文件")
-    parser.add_argument("--cols", type=int, default=9, help="内角点列数")
-    parser.add_argument("--rows", type=int, default=6, help="内角点行数")
-    parser.add_argument("--square-mm", type=float, default=5.0, help="方格边长（mm）")
+    parser.add_argument("--cols", type=int, default=13, help="内角点列数（论文 13×9）")
+    parser.add_argument("--rows", type=int, default=9, help="内角点行数（论文 13×9）")
+    parser.add_argument("--square-mm", type=float, default=4.0, help="方格边长（mm，论文为 4 mm）")
     parser.add_argument("--out", default=None, help="标定结果输出 JSON")
     args = parser.parse_args()
 

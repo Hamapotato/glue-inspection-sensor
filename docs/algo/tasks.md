@@ -10,7 +10,7 @@
 | ID | 任务 | 产出 | 验收 |
 |---|---|---|---|
 | [x] A-01 | 指标口径定义 | `docs/algo/p0-spec.md` §1 | 评审通过 |
-| [x] A-02 | 假设登记表 | 同上 §5 | A1–A10 有初值 |
+| [x] A-02 | 假设登记表 | 同上 §5 | A1–A13 有初值 |
 | [x] A-03 | 接口契约 | `docs/algo/interfaces.md` | 三个 Protocol 签名冻结 |
 | [x] A-04 | 配置基线 | `configs/default.yaml` | 所有阈值可配置，无硬编码 |
 | [x] A-05 | 数据目录与 manifest 模板 | `data/README.md` + 空 `manifest.csv` | 字段确认 |
@@ -51,7 +51,7 @@
 |---|---|---|---|
 | [ ] B-01 | 数据集与 DataLoader（按工件划分） | `algo/data.py` | 划分不泄漏 |
 | [ ] B-02 | K-means 先验框 | `algo/geometry.py`（已有） | 9 个 anchor，可视化 |
-| [ ] B-03 | RPN 网络 + DIoU 损失 | `algo/models/rpn.py` | 训练能收敛 |
+| [ ] B-03 | RPN 网络 + DIoU 损失 | `wip/b1-b2`：`algo/net/rpn.py` | 训练能收敛 |
 | [ ] B-04 | CIoU-NMS 推理 | 同上 | 与标准 NMS 对比图 |
 | [ ] B-05 | 消融：IoU/GIoU/DIoU/CIoU（表 3-1） | `eval` 脚本 | 4 组 IoU + 耗时 |
 | [ ] B-06 | 消融：NMS vs CIoU-NMS × 阈值（表 3-2） | 同上 | 5 阈值 × 2 方法 |
@@ -61,7 +61,7 @@
 
 | ID | 任务 | 产出 | 验收 |
 |---|---|---|---|
-| [ ] B-08 | YOLOv3 基线 | `algo/models/yolo.py` | 能训练/推理 |
+| [ ] B-08 | YOLOv3 基线 | `wip/b1-b2`：`algo/net/yolo.py` | 能训练/推理 |
 | [ ] B-09 | 5 层特征层（YOLOv3-5FL） | 同上 | 5 个输出尺度 |
 | [ ] B-10 | SPP 模块（4/2/1） | 同上 | 21 bin |
 | [ ] B-11 | 四组消融（表 3-4） | `eval` 脚本 | 逐图 IoU + 耗时 |

@@ -12,7 +12,7 @@
 1. [README.md](README.md) —— 仓库定位与当前进度
 2. [docs/algo/progress.md](docs/algo/progress.md) —— **阶段性汇报：论文算法、完成进度、流程框图与总结**
 3. [docs/algo/plan.md](docs/algo/plan.md) —— 复现范围与分层架构
-4. [docs/algo/p0-spec.md](docs/algo/p0-spec.md) —— 指标口径（M1–M10）与假设登记（A1–A10）
+4. [docs/algo/p0-spec.md](docs/algo/p0-spec.md) —— 指标口径（M1–M10）与假设登记（A1–A13）
 5. [docs/algo/interfaces.md](docs/algo/interfaces.md) —— 接口契约与配置键
 6. [docs/algo/tasks.md](docs/algo/tasks.md) —— 当前任务与阻塞项
 
@@ -22,7 +22,7 @@
 
 - **是什么**：以《基于机器视觉的车身涂胶在线检测系统研究》（天津大学硕士学位论文）为起点的涂胶检测传感器复现项目。
 - **不是什么**：不是论文原作者的代码仓库；论文未公开源码、数据与训练参数。
-- **当前阶段**：P0 规范与 P1 量测链路已完成（60 项测试），P2 大部分完成；B1/B2 模型代码在 `wip/b1-b2` 分支未验证；尚无训练好的模型与真实数据指标。
+- **当前阶段**：P0 规范与 P1 量测链路已完成（65 项测试），P2 大部分完成；B1/B2 模型代码在 `wip/b1-b2` 分支未验证；尚无训练好的模型与真实数据指标。
 - **事实来源**：`references/source/` 下的 PDF（本地，不入库）。一切关于论文的陈述以原文为准。
 
 ---
@@ -164,7 +164,7 @@ py -3 -m unittest discover -s tests -v
 py -3 scripts/demo_synthetic.py
 
 # 棋盘格标定（需自备标定图）
-py -3 scripts/calibrate_board.py --images <dir> --cols 9 --rows 6 --square-mm 5
+py -3 scripts/calibrate_board.py --images <dir> --cols 13 --rows 9 --square-mm 4
 
 # 批量评测
 py -3 scripts/eval_measure.py --images <dir> --labels <dir> --config configs/default.yaml

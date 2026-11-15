@@ -178,9 +178,12 @@ def zhang_suen_thinning(mask: np.ndarray, max_iter: int = 200) -> np.ndarray:
 def skeleton_length(skeleton: np.ndarray) -> float:
     """骨架长度（像素）：取骨架图的最长路径（直径）。
 
+    论文 4.4.2 只说明用细化提取骨架，未给出长度计算方法，本实现属复现假设 A11
+    （见 docs/algo/p0-spec.md §5）：在 8 邻接图上做两次 Dijkstra 求直径，可忽略
+    短分支（毛刺），对弯曲胶条更稳。
+
     早期版本用"4 邻接记 1、8 邻接记 √2"的边计数，斜向台阶会使长度虚高（实测可高估
-    30% 以上），进而使 ``width = area / length`` 系统性偏小；改为在 8 邻接图上做两次
-    Dijkstra 求直径，可忽略短分支（毛刺），对弯曲胶条更稳。
+    30% 以上），进而使 ``width = area / length`` 系统性偏小，故改用当前方法。
     """
     s = _as_binary(skeleton)
     ys, xs = np.nonzero(s)

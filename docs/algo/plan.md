@@ -10,7 +10,7 @@
 | 文档 | 内容 |
 |---|---|
 | [progress.md](progress.md) | **当前进度**（完成度、流程图、文件结构、卡点） |
-| [p0-spec.md](p0-spec.md) | 指标口径（M1–M10）、数据规范、标注规范、假设登记（A1–A10） |
+| [p0-spec.md](p0-spec.md) | 指标口径（M1–M10）、数据规范、标注规范、假设登记（A1–A13） |
 | [interfaces.md](interfaces.md) | 三个 Protocol 契约、配置键、结果 JSON、降级策略 |
 | [tasks.md](tasks.md) | P0–P5 任务清单（可勾选）与依赖关系 |
 | [figures/algorithm-pipeline.png](figures/algorithm-pipeline.png) | 算法流程框图（`scripts/make_flow_diagram.py` 生成） |
@@ -184,7 +184,7 @@ else: → OK
 | 论文说法 | 精确定义 | 注意事项 |
 |---|---|---|
 | 平均 IoU 99% | 测试集上 `mean IoU(预测 RoI, GT RoI)` | **不是 mAP**；表 5-2 的 AP 0.9951 不能当目标 |
-| 75/77，97% | 77 张反光图的**样本级召回** | 不是像素 IoU；表 3-4 的 74–93% 是反光框 IoU |
+| 75/77，97% | 77 张反光图的**样本级召回** | 不是像素 IoU；表 3-4 的 72–93% 是反光框 IoU |
 | 0.23 / 0.25 / 0.39 mm | 计算宽度 vs **人工卡尺**的 MAE / std / max | 真值来自人工实测 |
 | 80 ms / 30 fps | 单帧检测耗时（不含采集） | 需另报端到端耗时 |
 
@@ -239,7 +239,7 @@ else: → OK
 
 ## 7. 仓库当前骨架（v0.2）
 
-已实现并通过单元测试（`py -3 -m unittest discover -s tests`，60 项全绿）：
+已实现并通过单元测试（`py -3 -m unittest discover -s tests`，65 项全绿）：
 
 ```
 algo/
@@ -258,7 +258,7 @@ algo/
 └─ visualize.py     叠加图
 configs/default.yaml
 scripts/{demo_synthetic,calibrate_board,eval_measure,run_measure_report}.py
-tests/              6 个测试模块、60 项用例
+tests/              6 个测试模块、65 项用例
 data/               README + manifest 模板（图像不入库）
 ```
 
@@ -266,8 +266,8 @@ data/               README + manifest 模板（图像不入库）
 
 ```
 algo/data.py            数据集与 DataLoader（按工件划分）
-algo/models/rpn.py      RPN + DIoU 损失 + CIoU-NMS 推理
-algo/models/yolo.py     YOLOv3-5FL + SPP
+algo/net/rpn.py         RPN + DIoU 损失 + CIoU-NMS 推理（实现在 wip/b1-b2 分支）
+algo/net/yolo.py        YOLOv3-5FL + SPP（实现在 wip/b1-b2 分支）
 ```
 
 > P1 报告骨架已就绪：`docs/algo/reports/p1-measure.md`（当前为合成自检，真实指标待现场数据）。

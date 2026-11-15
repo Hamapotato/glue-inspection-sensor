@@ -11,6 +11,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import numpy as np  # noqa: E402
 
 from algo.preprocess import (  # noqa: E402
+    _threshold_lambda,
     double_peak_threshold,
     global_threshold,
     median_denoise,
@@ -29,6 +30,22 @@ class TestDenoise(unittest.TestCase):
         self.assertEqual(out.shape, noise.shape)
         self.assertEqual(out.dtype, np.uint8)
         self.assertLess(float(out.std()), float(noise.std()))
+
+    def test_threshold_formula(self):
+        # n <= 32 时论文式 (4-4) 取 0
+        small = np.linspace(-0.2, 0.2, 16).reshape(4, 4)
+        self.assertEqual(_threshold_lambda(small), 0.0)
+        # n > 32 时为正，且细节系数越强阈值越大
+        weak = np.full((8, 8), 0.01)
+        strong = np.full((8, 8), 0.10)
+        self.assertGreater(_threshold_lambda(strong), _threshold_lambda(weak))
+        self.assertGreater(_threshold_lambda(weak), 0.0)
+
+    def test_wavelet_lossless_when_threshold_zero(self):
+        rng = np.random.default_rng(3)
+        img = rng.integers(0, 256, size=(64, 64), dtype=np.uint8)
+        out = wavelet_denoise(img, level=2, threshold=0.0)
+        self.assertLessEqual(int(np.abs(out.astype(int) - img.astype(int)).max()), 1)
 
     def test_median_keeps_shape(self):
         img = np.random.default_rng(1).integers(0, 256, (64, 64), dtype=np.uint8)

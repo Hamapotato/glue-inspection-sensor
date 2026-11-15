@@ -12,7 +12,13 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import cv2  # noqa: E402
 import numpy as np  # noqa: E402
 
-from algo.calib import Calibration, calibrate_from_points, scale_from_homography  # noqa: E402
+from algo.calib import (  # noqa: E402
+    Calibration,
+    MappingTable,
+    calibrate_from_points,
+    scale_from_homography,
+    two_point_scale,
+)
 
 
 def make_board(cols: int = 9, rows: int = 6, square_mm: float = 5.0) -> np.ndarray:
@@ -57,6 +63,27 @@ class TestCalibration(unittest.TestCase):
         H = np.array([[4.0, 0, 0], [0, 4.0, 0], [0, 0, 1.0]])
         scale = scale_from_homography(H, (640, 480))
         self.assertAlmostEqual(scale, 0.25, places=6)
+
+    def test_two_point_scale(self):
+        # 论文式 (4-13)~(4-15)：10 mm 对应 40 px -> 0.25 mm/px
+        scale = two_point_scale([0, 0, 0], [10, 0, 0], [0, 0], [40, 0])
+        self.assertAlmostEqual(scale, 0.25, places=9)
+
+    def test_two_point_scale_zero_distance_raises(self):
+        with self.assertRaises(ValueError):
+            two_point_scale([0, 0, 0], [10, 0, 0], [5, 5], [5, 5])
+
+    def test_mapping_table_roundtrip(self):
+        table = MappingTable()
+        table.add("pos-01", 0.25)
+        table.add("pos-02", 0.251)
+        self.assertAlmostEqual(table.get("pos-01"), 0.25)
+        self.assertIsNone(table.get("missing"))
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "mapping.json"
+            table.save(path)
+            loaded = MappingTable.load(path)
+        self.assertEqual(loaded.entries, table.entries)
 
     def test_save_load_roundtrip(self):
         calib = Calibration(

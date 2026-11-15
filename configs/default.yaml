@@ -9,8 +9,9 @@ input:
 calib:
   enabled: false             # 无标定文件时为 false，宽度只输出像素
   mm_per_px: null            # [假设] 需用棋盘格实测填入
-  pattern: [9, 6]            # 棋盘格内角点列数、行数
-  square_mm: 5.0             # 方格物理边长
+  pattern: [13, 9]           # 论文 4.3.2：13×9 角点棋盘格
+  square_mm: 4.0             # 论文 4.3.2：方格间距 4 mm
+  mapping_table: null        # 按位置的映射数据库（JSON），对应论文 4.3.2 的映射标准值
 
 preprocess:
   denoise:

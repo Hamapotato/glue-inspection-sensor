@@ -65,11 +65,17 @@ def idwt2_haar(ll: np.ndarray, details: tuple[np.ndarray, np.ndarray, np.ndarray
     return out
 
 
-def _universal_threshold(detail: np.ndarray) -> float:
-    """通用阈值 T = σ·sqrt(2·ln N)，σ = median(|HH|)/0.6745。"""
+def _threshold_lambda(detail: np.ndarray) -> float:
+    """阈值 λ，论文式 (4-4)：λ = σ(0.3936 + 0.1829·log2 n)，n ≤ 32 时取 0。
+
+    其中 σ 为噪声标准差；论文未说明 σ 的估计方式，本实现用
+    ``σ = median(|细节系数|) / 0.6745``（复现假设 A3），属小波去噪的常用估计。
+    """
     sigma = np.median(np.abs(detail)) / 0.6745
     n = detail.size
-    return float(sigma * np.sqrt(2.0 * np.log(max(n, 2))))
+    if n <= 32:
+        return 0.0
+    return float(sigma * (0.3936 + 0.1829 * np.log2(n)))
 
 
 def wavelet_denoise(
@@ -94,7 +100,7 @@ def wavelet_denoise(
 
     processed: list[tuple[np.ndarray, np.ndarray, np.ndarray]] = []
     for lh, hl, hh in details:
-        t = threshold if threshold is not None else _universal_threshold(hh)
+        t = threshold if threshold is not None else _threshold_lambda(hh)
         processed.append(
             (_apply_threshold(lh, t, mode), _apply_threshold(hl, t, mode), _apply_threshold(hh, t, mode))
         )
