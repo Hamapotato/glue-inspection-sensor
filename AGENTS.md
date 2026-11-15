@@ -12,7 +12,7 @@
 1. [README.md](README.md) —— 仓库定位与当前进度
 2. [docs/algo/progress.md](docs/algo/progress.md) —— **阶段性汇报：论文算法、完成进度、流程框图与总结**
 3. [docs/algo/plan.md](docs/algo/plan.md) —— 复现范围与分层架构
-4. [docs/algo/p0-spec.md](docs/algo/p0-spec.md) —— 指标口径（M1–M10）与假设登记（A1–A13）
+4. [docs/algo/p0-spec.md](docs/algo/p0-spec.md) —— 指标口径（M1–M10）与假设登记（A1–A15）
 5. [docs/algo/interfaces.md](docs/algo/interfaces.md) —— 接口契约与配置键
 6. [docs/algo/tasks.md](docs/algo/tasks.md) —— 当前任务与阻塞项
 

@@ -10,7 +10,7 @@
 | ID | 任务 | 产出 | 验收 |
 |---|---|---|---|
 | [x] A-01 | 指标口径定义 | `docs/algo/p0-spec.md` §1 | 评审通过 |
-| [x] A-02 | 假设登记表 | 同上 §5 | A1–A13 有初值 |
+| [x] A-02 | 假设登记表 | 同上 §5 | A1–A15 有初值 |
 | [x] A-03 | 接口契约 | `docs/algo/interfaces.md` | 三个 Protocol 签名冻结 |
 | [x] A-04 | 配置基线 | `configs/default.yaml` | 所有阈值可配置，无硬编码 |
 | [x] A-05 | 数据目录与 manifest 模板 | `data/README.md` + 空 `manifest.csv` | 字段确认 |
