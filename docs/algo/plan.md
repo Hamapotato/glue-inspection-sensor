@@ -266,8 +266,8 @@ data/               README + manifest 模板（图像不入库）
 
 ```
 algo/data.py            数据集与 DataLoader（按工件划分）
-algo/net/rpn.py         RPN + DIoU 损失 + CIoU-NMS 推理（实现在 wip/b1-b2 分支）
-algo/net/yolo.py        YOLOv3-5FL + SPP（实现在 wip/b1-b2 分支）
+algo/net/rpn.py         RPN + DIoU 损失 + CIoU-NMS 推理（已实现，合成冒烟通过）
+algo/net/yolo.py        YOLOv3-5FL + SPP（已实现，合成未收敛）
 ```
 
 > P1 报告骨架已就绪：`docs/algo/reports/p1-measure.md`（当前为合成自检，真实指标待现场数据）。
