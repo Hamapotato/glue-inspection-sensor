@@ -239,7 +239,7 @@ else: → OK
 
 ## 7. 仓库当前骨架（v0.2）
 
-已实现并通过单元测试（`py -3 -m unittest discover -s tests`，65 项全绿）：
+已实现并通过单元测试（`py -3 -m unittest discover -s tests`，90 项全绿（25 项依赖 torch，无 torch 环境自动跳过））：
 
 ```
 algo/
@@ -258,7 +258,7 @@ algo/
 └─ visualize.py     叠加图
 configs/default.yaml
 scripts/{demo_synthetic,calibrate_board,eval_measure,run_measure_report}.py
-tests/              6 个测试模块、65 项用例
+tests/              7 个测试模块、90 项用例
 data/               README + manifest 模板（图像不入库）
 ```
 

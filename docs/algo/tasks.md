@@ -51,25 +51,29 @@
 
 ## P3 RoI 定位（2 周）
 
+> 注：B-01~B-04、B-07 的验证均为**合成数据冒烟**（见 [P3 报告](reports/p3-roi.md)），不是论文指标。
+
 | ID | 任务 | 产出 | 验收 |
 |---|---|---|---|
 | [x] B-01 | 数据集与 DataLoader（按工件划分） | `algo/data.py` | 划分不泄漏 |
 | [x] B-02 | K-means 先验框 | `algo/geometry.py`（已有） | 9 个 anchor，可视化 |
-| [x] B-03 | RPN 网络 + DIoU 损失 | `wip/b1-b2`：`algo/net/rpn.py` | 训练能收敛 |
-| [x] B-04 | CIoU-NMS 推理 | 同上 | 与标准 NMS 对比图 |
+| [x] B-03 | RPN 网络 + DIoU 损失 | `feat/b1-b2-models`：`algo/net/rpn.py` | 合成数据可收敛（P3 报告） |
+| [x] B-04 | CIoU-NMS 推理 | 同上 | 与标准 NMS 对比表（合成，P3 §5） |
 | [ ] B-05 | 消融：IoU/GIoU/DIoU/CIoU（表 3-1） | `eval` 脚本 | 4 组 IoU + 耗时 |
 | [ ] B-06 | 消融：NMS vs CIoU-NMS × 阈值（表 3-2） | 同上 | 5 阈值 × 2 方法 |
 | [x] B-07 | 平均 IoU 评测与报告 | `docs/algo/reports/p3-roi.md` | 对齐 99% 口径 |
 
 ## P4 反光检测（2 周）
 
+> 注：结构已完成并可训练，但合成反光小目标尚未收敛（[P4 报告](reports/p4-reflect.md)），B-12 待模型收敛后复测。
+
 | ID | 任务 | 产出 | 验收 |
 |---|---|---|---|
-| [x] B-08 | YOLOv3 基线 | `wip/b1-b2`：`algo/net/yolo.py` | 能训练/推理 |
+| [x] B-08 | YOLOv3 基线 | `feat/b1-b2-models`：`algo/net/yolo.py` | 能训练/推理 |
 | [x] B-09 | 5 层特征层（YOLOv3-5FL） | 同上 | 5 个输出尺度 |
 | [x] B-10 | SPP 模块（4/2/1） | 同上 | 21 bin |
 | [ ] B-11 | 四组消融（表 3-4） | `eval` 脚本 | 逐图 IoU + 耗时 |
-| [x] B-12 | 反光召回评测 | `docs/algo/reports/p4-reflect.md` | 对齐 97% 口径 |
+| [ ] B-12 | 反光召回评测 | `docs/algo/reports/p4-reflect.md`（骨架） | 模型收敛后复测 97% 口径 |
 
 ## P5 对标与收尾（1 周）
 
