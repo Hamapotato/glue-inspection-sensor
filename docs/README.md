@@ -31,6 +31,7 @@
 | [产品开发路线](project/product-development-roadmap.md) | 从论文装置到 RK3588 工程样机和产品化的开发路线 |
 | [导师汇报摘要](project/mentor-report-summary.md) | 项目总体方案、阶段安排和汇报重点 |
 | [Git 操作规范](project/git-workflow.md) | 分支模型、提交规范、同步/变基/推送与清理流程 |
+| [论文算法 vs 产品算法对照](project/thesis-vs-product-algorithm.md) | 两份材料的算法拆解、逐项对比、选型建议与证据引用 |
 
 ## 数据
 
