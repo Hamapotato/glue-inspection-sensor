@@ -1,0 +1,36 @@
+#!/bin/sh
+# 提交前检查：拒绝构建产物、模型权重、PDF/数据与大文件。
+# 安装：git config core.hooksPath .githooks
+set -u
+
+tmp=$(mktemp 2>/dev/null) || tmp=.git/_pre_commit_files
+git diff --cached --name-only -z | tr '\0' '\n' > "$tmp"
+
+fail=0
+while IFS= read -r f; do
+  [ -z "$f" ] && continue
+
+  case "$f" in
+    target/*|*/target/*|dist/*|*/dist/*|train-cpp/build/*|*/train-cpp/build/*|__pycache__/*|*/__pycache__/*|.venv/*|*/.venv/*|outputs/*|*/outputs/*)
+      echo "[pre-commit] 拒绝构建产物/输出目录: $f" >&2; fail=1; continue;;
+    *.pyc|*.pyd|*.o|*.obj|*.lib|*.exe|*.dll|*.so|*.dylib)
+      echo "[pre-commit] 拒绝编译产物: $f" >&2; fail=1; continue;;
+    *.pt|*.pth|*.onnx|*.rknn|*.engine|*.safetensors|*.ckpt)
+      echo "[pre-commit] 拒绝模型权重: $f" >&2; fail=1; continue;;
+    *.db|*.db-journal|*.db-wal)
+      echo "[pre-commit] 拒绝数据库文件: $f" >&2; fail=1; continue;;
+    references/source/*)
+      echo "[pre-commit] 拒绝原始 PDF/数据（references/source 不入库）: $f" >&2; fail=1; continue;;
+  esac
+
+  size=$(git cat-file -s ":$f" 2>/dev/null || echo 0)
+  if [ "${size:-0}" -gt 5242880 ]; then
+    echo "[pre-commit] 拒绝 >5MB 文件: $f ($size bytes)" >&2
+    echo "            如确需提交，请人工确认后使用 git commit --no-verify 并说明原因。" >&2
+    fail=1
+  fi
+done < "$tmp"
+
+rm -f "$tmp"
+[ "$fail" -eq 0 ] || exit 1
+exit 0

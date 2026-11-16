@@ -104,11 +104,13 @@ def bbox_diou(box, boxes):
 
 - 不直接改 `main`。分支命名：`feat/<主题>`、`fix/<主题>`、`docs/<主题>`、`chore/<主题>`。
 - 当前集成分支：`main`。新的功能、修复和文档工作从 `main` 创建独立分支。
+- 完整分支模型、同步/合并/清理规则见 [docs/project/git-workflow.md](docs/project/git-workflow.md)。
 
 ### 5.2 提交
 
 - 消息用英文祈使句，首字母大写，≤72 字符；正文写"做了什么 + 为什么"。
 - 一个提交只做一件事；文档改动可与对应代码同一提交。
+- 提交信息与暂存文件由 `.githooks/` 检查（`scripts/install-git-hooks.ps1` 安装）。
 - 提交前必须：`git status` 干净（无 `.pyc`、无临时脚本）、测试通过。
 
 ### 5.3 完成定义（DoD）
