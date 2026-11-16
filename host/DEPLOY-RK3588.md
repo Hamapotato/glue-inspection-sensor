@@ -1,0 +1,133 @@
+# 在 RK3588 上部署上位机
+
+> 目标平台：RK3588（aarch64，Debian/Ubuntu 系 BSP），无显示器也能跑检测服务；需要界面时按第 5 节构建 GUI。
+> 当前交付形态：**无界面检测服务 `glue-agent`（静态 musl，单文件，无系统依赖）** + 可选 GUI。
+
+---
+
+## 1. 交叉编译（在 Windows 开发机）
+
+```powershell
+cd host
+powershell -ExecutionPolicy Bypass -File scripts\build-aarch64.ps1
+```
+
+产物在仓库根目录 `dist/rk3588/`：
+
+```
+dist/rk3588/
+├─ bin/glue-agent              # aarch64 静态可执行文件（约 1.5 MB）
+├─ configs/default.yaml        # 算法参数
+├─ samples/                    # 放待检测图片
+├─ logs/
+└─ glue-agent.service          # systemd 单元
+```
+
+技术上：目标三元组 `aarch64-unknown-linux-musl`，链接器 `rust-lld`，**静态链接、不依赖 glibc**，直接拷到板上即可运行（已验证 ELF 头：64 位 AArch64）。
+
+## 2. 拷贝到板子
+
+```bash
+scp -r dist/rk3588/* user@<board-ip>:/opt/glue/
+ssh user@<board-ip>
+sudo chmod +x /opt/glue/bin/glue-agent
+```
+
+## 3. 运行（无界面）
+
+```bash
+cd /opt/glue
+# 单次检测一个目录，输出 JSON
+./bin/glue-agent --config configs/default.yaml --input samples --mm-per-px 0.0833 --out logs/result.json
+
+# 常驻：每 5 秒扫描一次 samples，结果追加到 JSONL
+./bin/glue-agent --config configs/default.yaml --input samples --mm-per-px 0.0833 \
+                 --state logs/results.jsonl --watch 5
+```
+
+结果 JSON 字段与 Windows 版一致（verdict / width_mm / timings_ms / rois）。
+
+## 4. 开机自启（systemd）
+
+```bash
+sudo cp /opt/glue/glue-agent.service /etc/systemd/system/
+sudo useradd -r -s /usr/sbin/nologin glue 2>/dev/null || true
+sudo chown -R glue:glue /opt/glue
+sudo systemctl daemon-reload
+sudo systemctl enable --now glue-agent
+journalctl -u glue-agent -f
+```
+
+服务定义见 `host/deploy/glue-agent.service`（按需修改路径与扫描间隔）。
+
+## 5. 构建 GUI 版（需要显示环境）
+
+`glue-app`（egui）依赖 X11/Wayland 与 OpenGL ES，建议**直接在板子上编译**：
+
+```bash
+# 1) 装 Rust（一次）
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+source ~/.cargo/env
+
+# 2) 系统依赖（Ubuntu/Debian）
+sudo apt update
+sudo apt install -y build-essential pkg-config cmake \
+    libx11-dev libxi-dev libxcursor-dev libxrandr-dev libxkbcommon-dev \
+    libgl1-mesa-dev libegl1-mesa-dev libwayland-dev libasound2-dev
+
+# 3) 编译
+cd host
+cargo build --release -p glue-app
+
+# 4) 运行（有桌面/X11 时）
+GLUE_CONFIG=/opt/glue/configs/default.yaml \
+GLUE_SAMPLES=/opt/glue/samples \
+GLUE_DB=/opt/glue/logs/host.db \
+./target/release/glue-app
+```
+
+> 只想远程看界面时，可在板子上装轻量桌面（`xorg` + `openbox`）或 VNC / `x11vnc`。
+
+## 6. 中文字体
+
+GUI 会自动查找 `/usr/share/fonts/...` 下的 Noto CJK、文泉驿等；若无中文字体（界面显示方块）：
+
+```bash
+sudo apt install -y fonts-wqy-microhei        # 或 fonts-noto-cjk
+export GLUE_FONT=/usr/share/fonts/truetype/wqy/wqy-microhei.ttc
+```
+
+## 7. 路径与环境变量
+
+| 变量 | 默认值 | 说明 |
+| --- | --- | --- |
+| `GLUE_CONFIG` | `../configs/default.yaml` | 算法配置 |
+| `GLUE_SAMPLES` | `../outputs/rust_samples` | 检测图片目录（GUI 默认目录） |
+| `GLUE_DB` | `../outputs/host.db` | SQLite 历史库（GUI） |
+| `GLUE_RECIPE` | `../outputs/recipe.json` | 配方文件（GUI） |
+| `GLUE_FONT` | 自动查找 | 中文字体路径 |
+
+`glue-agent` 全部参数走命令行，不读上述环境变量。
+
+## 8. 性能验证
+
+```bash
+# 板上测传统链路耗时
+time ./bin/glue-agent --config configs/default.yaml --input samples --mm-per-px 0.0833 --out /tmp/r.json
+```
+
+预期 1280×960 单帧 20–40 ms（A76 单核约为 x86 的 0.5–0.7 倍，x86 实测 p50 ≈ 8 ms）。
+若明显偏慢，先看 CPU 调频（`cpufreq-info`）是否被降频。
+
+## 9. 已知限制
+
+1. **无相机**：当前只做文件回放；接 MVS 相机需要 `glue-camera`（MVS aarch64 SDK + BSP 内核驱动，需单独验证）；
+2. **无 NPU 推理**：RPN/YOLO 尚未导出 ONNX/RKNN，板端仅传统算法链路；
+3. **GUI 交叉编译**：目前只给"板上原生编译"；Windows 交叉编译 GUI 需要 aarch64 glibc sysroot，未配置；
+4. **字体格式**：`.ttc` 集合字体若加载失败，改用 `.ttf`（如 `wqy-microhei.ttf`）并通过 `GLUE_FONT` 指定。
+
+## 10. 后续
+
+- `glue-camera`：MVS FFI，三路采集与硬触发；
+- `glue-infer`：ONNX Runtime → RKNN，接 NPU；
+- 打包：agent + configs + systemd 打成 tar.gz 或 deb 包。

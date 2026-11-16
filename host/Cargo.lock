@@ -830,6 +830,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "glue-agent"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "glue-core",
+ "glue-pipeline",
+ "glue-vision",
+ "image",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "glue-app"
 version = "0.1.0"
 dependencies = [

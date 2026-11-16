@@ -537,16 +537,34 @@ fn draw_histogram(ui: &mut egui::Ui, widths: &[f64], bins: usize) {
 
 fn install_fonts(ctx: &egui::Context) {
     let mut fonts = egui::FontDefinitions::default();
-    for path in [
-        "C:/Windows/Fonts/Deng.ttf",
-        "C:/Windows/Fonts/simhei.ttf",
-        "C:/Windows/Fonts/msyh.ttc",
-    ] {
-        if let Ok(bytes) = std::fs::read(path) {
+    let mut candidates: Vec<String> = Vec::new();
+    if let Ok(custom) = std::env::var("GLUE_FONT") {
+        candidates.push(custom);
+    }
+    candidates.extend(
+        [
+            // Windows
+            "C:/Windows/Fonts/Deng.ttf",
+            "C:/Windows/Fonts/simhei.ttf",
+            "C:/Windows/Fonts/msyh.ttc",
+            // Linux（RK3588 / Debian / Ubuntu）
+            "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+            "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
+            "/usr/share/fonts/truetype/wqy/wqy-microhei.ttc",
+            "/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc",
+            "/usr/share/fonts/truetype/arphic/uming.ttc",
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        ]
+        .iter()
+        .map(|s| s.to_string()),
+    );
+    for path in candidates {
+        if let Ok(bytes) = std::fs::read(&path) {
             fonts.font_data.insert("cjk".to_owned(), egui::FontData::from_owned(bytes).into());
             for family in [egui::FontFamily::Proportional, egui::FontFamily::Monospace] {
                 fonts.families.entry(family).or_default().insert(0, "cjk".to_owned());
             }
+            eprintln!("[ui] 字体：{path}");
             break;
         }
     }

@@ -1,0 +1,18 @@
+﻿[package]
+name = "glue-agent"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "glue-agent"
+path = "src/main.rs"
+
+[dependencies]
+glue-core = { path = "../core" }
+glue-vision = { path = "../vision" }
+glue-pipeline = { path = "../pipeline" }
+anyhow = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+image = { workspace = true }

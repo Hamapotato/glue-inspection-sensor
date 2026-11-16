@@ -502,7 +502,7 @@ Running →(相机断线)→ Degraded →(重连成功)→ Running
 | 平台 | 方式 |
 | --- | --- |
 | Windows x64 | `cargo build --release` 单 exe；配置/模型/配方放 `%PROGRAMDATA%\GlueInspect\`；日志 `%LOCALAPPDATA%\GlueInspect\logs\` |
-| aarch64/RK3588 | `cargo build --release --target aarch64-unknown-linux-gnu`（交叉编译工具链），systemd 服务 + 本地配置目录 |
+| aarch64/RK3588 | `scripts/build-aarch64.ps1` 交叉编译 `glue-agent`（aarch64-musl 静态单文件）+ systemd；详见 [host/DEPLOY-RK3588.md](host/DEPLOY-RK3588.md) |
 | 安装 | 首版绿色包（zip）；后续可做 MSI |
 | 升级 | 替换二进制 + 配置迁移脚本；模型按版本目录并存 |
 

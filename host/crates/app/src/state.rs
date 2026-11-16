@@ -41,12 +41,16 @@ pub struct AppState {
     pub recipe_path: String,
 }
 
+fn env_or(name: &str, default: &str) -> String {
+    std::env::var(name).unwrap_or_else(|_| default.to_string())
+}
+
 impl AppState {
     pub fn new() -> Self {
-        let cfg_path = "../configs/default.yaml".to_string();
+        let cfg_path = env_or("GLUE_CONFIG", "../configs/default.yaml");
         let cfg = Config::from_yaml(&cfg_path).unwrap_or_default();
         let mm_per_px = cfg.mm_per_px();
-        let db_path = "../outputs/host.db".to_string();
+        let db_path = env_or("GLUE_DB", "../outputs/host.db");
         let store = Store::open(&db_path).unwrap_or_else(|_| Store::open_memory().expect("memory store"));
         Self {
             cfg_path,
@@ -54,7 +58,7 @@ impl AppState {
             mm_per_px,
             db_path,
             store,
-            dir: "../outputs/rust_samples".into(),
+            dir: env_or("GLUE_SAMPLES", "../outputs/rust_samples"),
             files: Vec::new(),
             current: 0,
             image: None,
@@ -62,7 +66,7 @@ impl AppState {
             status: "就绪".into(),
             history: Vec::new(),
             stats: None,
-            recipe_path: "../outputs/recipe.json".into(),
+            recipe_path: env_or("GLUE_RECIPE", "../outputs/recipe.json"),
         }
     }
 

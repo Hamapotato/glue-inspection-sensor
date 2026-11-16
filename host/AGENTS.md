@@ -30,7 +30,7 @@
 | 存储 | `rusqlite`（bundled SQLite） | 表结构变更必须写迁移或重建说明 |
 | 图像 | `image` crate（png/jpeg/bmp） | 不在 GUI 线程做重计算 |
 | 构建 | MSVC 2022 Build Tools + Windows SDK | 构建前加载 `vcvars64.bat`（`build.bat` 已封装） |
-| 平台 | Windows x64 优先，代码保持可交叉编译到 aarch64 | 不引入仅 Windows 可用的 crate（除非隔离） |
+| 平台 | Windows x64 优先；crates/agent 交叉编译到 aarch64-musl（RK3588） | 不引入仅 Windows 可用的 crate（除非隔离） |
 
 ---
 
@@ -49,6 +49,7 @@ host/
    ├─ pipeline/             # 编排、计时
    ├─ store/                # SQLite 记录与统计
    ├─ app/                  # egui 界面与状态
+   ├─ agent/                # 无界面检测服务（RK3588 / Linux 板端）
    └─ cli/                  # 命令行（inspect/gen/bench）
 ```
 
@@ -147,11 +148,22 @@ host/
 # 无头检测（回归）
 .\run-headless.bat
 
+# 交叉编译 RK3588 版（产物 dist/rk3588）
+powershell -ExecutionPolicy Bypass -File scripts\build-aarch64.ps1
+
 # 测试 / 格式 / 检查
 cargo test --release
 cargo fmt --all -- --check
 cargo clippy --all-targets -- -D warnings
 ```
+
+---
+
+## 8.1 部署（RK3588）
+
+- 无界面服务：`scripts/build-aarch64.ps1` 交叉编译 `glue-agent`（aarch64-musl 静态单文件）；
+- 拷板、systemd、字体、GUI 板端编译见 [DEPLOY-RK3588.md](DEPLOY-RK3588.md)；
+- 部署相关改动必须同时更新该文档。
 
 ---
 
