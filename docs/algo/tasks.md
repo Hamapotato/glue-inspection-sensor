@@ -84,7 +84,8 @@
 | [ ] E-03 | 版本与复现说明 | `docs/algo/reproduce.md` | 他人可照做 |
 | [ ] E-04 | 结论与后续建议 | 同上 | 明确哪些能复现、哪些不能 |
 | [x] E-05 | ONNX 导出与数值对拍（B1/B2） | `scripts/export_onnx.py`、`docs/algo/reports/p5-onnx.md` | 两模型可导出，onnxruntime 与 PyTorch 最大误差 ≤1e-4 |
-| [ ] E-06 | 端侧推理接入（Rust/ONNX 或 RKNN） | `glue-infer` | 与 Python 对拍 ≤1e-5 |
+| [x] E-06 | Rust 端 ONNX 推理与对拍（tract） | `host/crates/infer`、`scripts/check_infer_parity.py` | 与 onnxruntime 对拍 ≤1e-5（实测 <1e-6） |
+| [ ] E-07 | RPN/YOLO 接入 pipeline（替代启发式定位） | `glue-vision::locate` 可配置开关 | 端到端结果与 Python 一致 |
 
 ---
 

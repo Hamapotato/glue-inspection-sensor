@@ -86,7 +86,7 @@ def export_yolo(out_dir: Path, weights: Path | None, img: int = 128) -> dict:
             str(onnx_path),
             input_names=["image"],
             output_names=["out"],
-            dynamic_axes={"image": {0: "batch"}, "out": {0: "batch"}},
+            # tract 对动态 Resize 的符号推导不完整，YOLO 导出为静态 batch
             opset_version=17,
             do_constant_folding=True,
         )

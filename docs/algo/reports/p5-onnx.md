@@ -48,10 +48,24 @@
 - YOLO5FL：SPP 中的 `AdaptiveMaxPool2d` 与 `F.interpolate(..., mode="nearest")` 均被导出为静态形状的标准算子（输入 H/W 固定）；FPN 拼接、reshape 正常；
 - 输出张量较大（16368×6），端侧建议只取需要的尺度或在后处理中逐尺度处理，避免一次拷贝过多数据。
 
+## 4.1 Rust 端推理与对拍（E-06）
+
+`host/crates/infer`（`glue-infer`，tract-onnx 纯 Rust）加载上述 ONNX 并实现：
+anchors 生成、RPN 解码 + NMS、YOLO 五尺度解码 + NMS、命令行原始输出。
+
+对拍方式：`scripts/check_infer_parity.py` 生成固定随机输入，分别跑 Rust 与 onnxruntime，逐张量比较：
+
+| 模型 | 输出 | max\|rust-ort\| |
+| --- | --- | --- |
+| RPN | `[1,3600]`、`[1,3600,4]` | **4.77e-07 / 2.27e-07** |
+| YOLO5FL | `[1,16368,6]` | **5.81e-07** |
+
+结论：**Rust 与 onnxruntime 数值一致（<1e-6），远优于 1e-5 判据**；YOLO 采用静态 batch 导出（tract 不支持动态 Resize 符号推导）。
+
 ## 5. 局限与下一步
 
 1. **无训练权重参与**：本次是结构验证。等真实数据训练收敛后，用 `--rpn-weights` / `--yolo-weights` 重新导出并做同样的对拍（脚本已支持）；
-2. **未做端侧推理**：Rust 侧 `glue-infer` 仍是空缺；下一步用 `ort` crate 加载 ONNX，在 Rust 中实现解码（RPN 的 anchors 生成与 proposal、YOLO 的 decode/NMS），并与 Python 对拍；
+2. **未接入 pipeline**：Rust 侧 `glue-infer` 已完成原始推理、解码与 NMS，并与 onnxruntime 对拍通过；尚未替换 `glue-vision::locate` 的启发式定位（E-07）；
 3. **RKNN 未验证**：ONNX → RKNN 转换需在 RK3588 工具链上执行（x86 Linux 上可用 rknn-toolkit2），本机 Windows 未做；
 4. **精度评测另算**：ONNX 一致性 ≠ 检测精度，指标评测仍按 `p0-spec.md` 的真实数据流程执行。
 
