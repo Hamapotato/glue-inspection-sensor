@@ -247,9 +247,11 @@ measure:    {bfs_connectivity, min_area_px, width: {standard_mm, warn_delta_mm, 
 calib:      {enabled, mm_per_px, pattern, square_mm}
 quality:    {enabled, min_mean, max_mean, max_overexposed_ratio, min_contrast, min_sharpness}
 decide:     {broken_min_rois, reflection_override}
-locate:     {type, weights, input_size, nms: {type, thr}}
-reflect:    {type, weights, input_size, score_thr}
+locate:     {enabled, type, weights, input_size, score_thr, pre_topk, post_topk, min_size}
+reflect:    {enabled, type, weights, input_size, score_thr}
 ```
+
+**推理接入**：`locate.enabled=true` 时用 `glue-infer::RpnDetector` 输出 RoI（`reflect.enabled=true` 时用 `YoloDetector` 做反光复判）；推理失败/未检出时回退启发式定位，并把原因写入 `FrameResult.notes`（不静默降级）。
 
 **质量门控**（工程增强，论文未设此环节）：流水线在定位前计算灰度均值、p95−p05 对比度、饱和像素比例与 Laplacian 方差（清晰度），任一越界即返回 `NO_QUALITY`（"无法判定"），不进入定位与量测，避免把坏图误判为缺陷。阈值全部来自 `quality:` 配置段。
 
@@ -519,7 +521,7 @@ Running →(相机断线)→ Degraded →(重连成功)→ Running
 | M1 内核 | core/vision/pipeline/cli + 单测 | `cargo test` 全绿；CLI 出 JSON |
 | M2 双实现对照 | Python/Rust 同图比对 | 宽度差 ≤ 1 px、判定一致 |
 | M2.5 训练迁移 | C++/libtorch 训练工程（RPN + YOLO）、与 Python 单 batch 数值对照 | 误差 ≤ 1e-5；同数据同超参可收敛 |
-| M3 推理 | `glue-infer`（tract 加载 ONNX；RPN/YOLO 解码 + NMS 已实现） | 数值对拍已过（<1e-6）；与 pipeline 集成、板端性能待做 |
+| M3 推理 | `glue-infer`（tract）已接入 pipeline（`locate.enabled` / `reflect.enabled` 开关） | 数值对拍 <1e-6；随机权重冒烟验证链路；训练权重后的端到端判定对拍与板端性能待做 |
 | M4 相机 | `glue-camera`（MVS FFI、三路、触发） | 连续 8 h 无掉线 |
 | M5 界面 | `glue-app`（5 页面 + 叠加渲染 + SQLite 历史/统计） | ✅ 文件回放闭环可演示（相机版待接） |
 | M6 集成 | 存储/统计/报警、打包、ARM 交叉编译 | Windows 绿色包；RK3588 跑通 |
