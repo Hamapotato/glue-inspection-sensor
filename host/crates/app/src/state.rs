@@ -88,7 +88,17 @@ impl AppState {
             cfg.calib.enabled = true;
             cfg.calib.mm_per_px = self.mm_per_px;
         }
-        Inspector::new(cfg)
+        {
+            let mut detectors = glue_pipeline::Detectors::default();
+            match glue_infer::detectors_from_config(&cfg) {
+                Ok((locate, reflect)) => {
+                    detectors.locate = locate;
+                    detectors.reflect = reflect;
+                }
+                Err(e) => eprintln!("[warn] 推理模块未启用：{e}"),
+            }
+            Inspector::with_detectors(cfg, detectors)
+        }
     }
 
     pub fn scan(&mut self) {

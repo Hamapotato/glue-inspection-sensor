@@ -1,28 +1,76 @@
-//! 检测流水线：定位 → 裁剪 → 量测 → 判定，与 Python `algo/pipeline.py` 分段一致。
+//! 检测流水线：质量门控 → 定位（启发式 / RPN）→ 裁剪 → 量测 → 判定（含反光复判）。
+//!
+//! 推理由 `glue-core::ObjectDetector` 抽象注入（实现位于 `glue-infer`），
+//! 这样 pipeline 不依赖具体推理运行时；配置关闭时走原启发式链路。
 
 use std::time::Instant;
 
-use glue_core::{decide, decide_quality, Config, FrameResult, Timings};
-use glue_vision::{locate, measure_mask, morph, quality_metrics, GrayImage};
+use glue_core::{decide, decide_quality, Config, FrameResult, ObjectDetector, Timings};
+use glue_vision::{
+    locate, measure_mask, morph, otsu_threshold, quality_metrics, threshold, BinaryMask, GrayImage,
+};
 use rayon::prelude::*;
+
+#[derive(Default)]
+pub struct Detectors {
+    pub locate: Option<Box<dyn ObjectDetector>>,
+    pub reflect: Option<Box<dyn ObjectDetector>>,
+}
 
 pub struct Inspector {
     cfg: Config,
     mm_per_px: Option<f64>,
+    detectors: Detectors,
 }
 
 impl Inspector {
     pub fn new(cfg: Config) -> Self {
+        Self::with_detectors(cfg, Detectors::default())
+    }
+
+    pub fn with_detectors(cfg: Config, detectors: Detectors) -> Self {
         let mm_per_px = cfg.mm_per_px();
-        Self { cfg, mm_per_px }
+        Self {
+            cfg,
+            mm_per_px,
+            detectors,
+        }
     }
 
     pub fn config(&self) -> &Config {
         &self.cfg
     }
 
+    fn measure_roi(
+        &self,
+        img: &GrayImage,
+        mask: Option<&BinaryMask>,
+        bbox: &glue_core::BBox,
+    ) -> glue_core::Measure {
+        let pad = (self.cfg.preprocess.morph.ksize as f64 / 2.0 + 1.0).max(1.0);
+        let bb = glue_core::BBox {
+            x1: (bbox.x1 - pad).max(0.0),
+            y1: (bbox.y1 - pad).max(0.0),
+            x2: (bbox.x2 + pad).min(img.w as f64),
+            y2: (bbox.y2 + pad).min(img.h as f64),
+        };
+        let ksize = self.cfg.preprocess.morph.ksize;
+        let order = &self.cfg.preprocess.morph.order;
+        let roi_mask = match mask {
+            Some(m) => morph(&m.crop(&bb), ksize, order),
+            None => {
+                // 推理路径没有整图掩膜：在 RoI 内做 Otsu 分割后量测
+                let roi = img.crop(&bb);
+                let t = otsu_threshold(&roi);
+                morph(&threshold(&roi, t), ksize, order)
+            }
+        };
+        measure_mask(&roi_mask, self.mm_per_px)
+    }
+
     pub fn inspect(&self, img: &GrayImage) -> FrameResult {
         let t0 = Instant::now();
+        let mut notes: Vec<String> = Vec::new();
 
         // 质量门控：太暗/过曝/模糊/低对比度直接"无法判定"，不进入定位与量测。
         let quality = quality_metrics(img);
@@ -38,33 +86,51 @@ impl Inspector {
                     measure_ms: 0.0,
                     total_ms: ms,
                 },
+                notes,
             };
         }
         let quality_ms = t0.elapsed().as_secs_f64() * 1000.0;
 
-        let (rois, mask) = locate(img, &self.cfg);
+        // 定位：优先推理（若注入），失败/空结果时回退启发式并记录 note（不静默降级）。
+        let (rois, mask) = if let Some(det) = &self.detectors.locate {
+            match det.detect(&img.data, img.w, img.h) {
+                Ok(boxes) if !boxes.is_empty() => (boxes, None),
+                Ok(_) => {
+                    notes.push("RPN 未检出 RoI，回退启发式定位".into());
+                    let (r, m) = locate(img, &self.cfg);
+                    (r, Some(m))
+                }
+                Err(e) => {
+                    notes.push(format!("RPN 推理失败：{e}；回退启发式定位"));
+                    let (r, m) = locate(img, &self.cfg);
+                    (r, Some(m))
+                }
+            }
+        } else {
+            let (r, m) = locate(img, &self.cfg);
+            (r, Some(m))
+        };
         let locate_ms = t0.elapsed().as_secs_f64() * 1000.0;
 
         let t1 = Instant::now();
-        let pad = (self.cfg.preprocess.morph.ksize as f64 / 2.0 + 1.0).max(1.0);
-        let measure = rois.first().map(|bbox| {
-            let bb = glue_core::BBox {
-                x1: (bbox.x1 - pad).max(0.0),
-                y1: (bbox.y1 - pad).max(0.0),
-                x2: (bbox.x2 + pad).min(img.w as f64),
-                y2: (bbox.y2 + pad).min(img.h as f64),
-            };
-            let roi_mask = mask.crop(&bb);
-            let roi_mask = morph(
-                &roi_mask,
-                self.cfg.preprocess.morph.ksize,
-                &self.cfg.preprocess.morph.order,
-            );
-            measure_mask(&roi_mask, self.mm_per_px)
-        });
+        let measure = rois
+            .first()
+            .map(|bbox| self.measure_roi(img, mask.as_ref(), bbox));
         let measure_ms = t1.elapsed().as_secs_f64() * 1000.0;
 
-        let decision = decide(&self.cfg, rois.len(), measure.as_ref());
+        let mut decision = decide(&self.cfg, rois.len(), measure.as_ref());
+
+        // 反光复判（可选）：检测到反光框时提示调光，而不是直接判废。
+        if let Some(det) = &self.detectors.reflect {
+            match det.detect(&img.data, img.w, img.h) {
+                Ok(boxes) if !boxes.is_empty() => {
+                    decision = glue_core::decide_with_reflection(&self.cfg, decision, boxes.len());
+                }
+                Ok(_) => {}
+                Err(e) => notes.push(format!("YOLO 反光推理失败：{e}")),
+            }
+        }
+
         FrameResult {
             rois,
             measure,
@@ -75,6 +141,7 @@ impl Inspector {
                 measure_ms,
                 total_ms: t0.elapsed().as_secs_f64() * 1000.0,
             },
+            notes,
         }
     }
 
@@ -86,6 +153,7 @@ impl Inspector {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use anyhow::Result;
     use glue_core::VerdictCode;
 
     fn strip(w: usize, h: usize, strip_w: usize) -> GrayImage {
@@ -99,6 +167,20 @@ mod tests {
         img
     }
 
+    struct Fixed(Vec<glue_core::BBox>);
+    impl ObjectDetector for Fixed {
+        fn detect(&self, _gray: &[u8], _w: usize, _h: usize) -> Result<Vec<glue_core::BBox>> {
+            Ok(self.0.clone())
+        }
+    }
+
+    struct Failing;
+    impl ObjectDetector for Failing {
+        fn detect(&self, _gray: &[u8], _w: usize, _h: usize) -> Result<Vec<glue_core::BBox>> {
+            anyhow::bail!("模拟推理失败")
+        }
+    }
+
     #[test]
     fn normal_strip_ok() {
         let insp = Inspector::new(Config::default());
@@ -108,7 +190,71 @@ mod tests {
     }
 
     #[test]
-    fn two_strips_broken() {
+    fn detector_roi_used_for_measure() {
+        let bbox = glue_core::BBox {
+            x1: 10.0,
+            y1: 55.0,
+            x2: 310.0,
+            y2: 65.0,
+        };
+        let insp = Inspector::with_detectors(
+            Config::default(),
+            Detectors {
+                locate: Some(Box::new(Fixed(vec![bbox]))),
+                reflect: None,
+            },
+        );
+        let r = insp.inspect(&strip(320, 120, 10));
+        let m = r.measure.expect("measure");
+        assert!((m.width_px - 10.0).abs() < 1.5, "width={}", m.width_px);
+        assert!(r.notes.is_empty());
+    }
+
+    #[test]
+    fn failing_detector_falls_back_with_note() {
+        let insp = Inspector::with_detectors(
+            Config::default(),
+            Detectors {
+                locate: Some(Box::new(Failing)),
+                reflect: None,
+            },
+        );
+        let r = insp.inspect(&strip(320, 120, 10));
+        assert_eq!(r.decision.code, VerdictCode::Ok);
+        assert_eq!(r.rois.len(), 1, "fallback heuristic should find the strip");
+        assert!(
+            r.notes.iter().any(|n| n.contains("RPN 推理失败")),
+            "notes={:?}",
+            r.notes
+        );
+    }
+
+    #[test]
+    fn reflection_marks_suspect() {
+        let bbox = glue_core::BBox {
+            x1: 60.0,
+            y1: 55.0,
+            x2: 120.0,
+            y2: 65.0,
+        };
+        let insp = Inspector::with_detectors(
+            Config::default(),
+            Detectors {
+                locate: None,
+                reflect: Some(Box::new(Fixed(vec![bbox]))),
+            },
+        );
+        let r = insp.inspect(&strip(320, 120, 10));
+        assert_eq!(
+            r.decision.code,
+            VerdictCode::ReflectionSuspect,
+            "{}",
+            r.decision.message
+        );
+    }
+
+    #[test]
+    fn broken_when_two_rois() {
         let mut img = GrayImage::new(400, 120, 15);
         for y in 50..60 {
             for x in 20..180 {
@@ -131,13 +277,10 @@ mod tests {
 
     #[test]
     fn textured_but_no_strip_is_no_roi() {
-        // 有对比度与清晰度（棋盘格），但没有胶条：每个方格面积小于 min_area_px → NO_ROI，
-        // 说明质量门控放行后仍会正常走定位流程。
         let (w, h) = (200usize, 100usize);
         let mut img = GrayImage::new(w, h, 60);
         for y in 0..h {
             for x in 0..w {
-                // 6×6 亮点、间隔 16 px：面积远小于 min_area_px，且不成大连通域
                 if x % 16 < 6 && y % 16 < 6 {
                     img.set(x, y, 200);
                 }
@@ -156,8 +299,10 @@ mod tests {
     #[test]
     fn overexposed_is_no_quality() {
         let insp = Inspector::new(Config::default());
-        let r = insp.inspect(&GrayImage::new(200, 100, 250));
-        assert_eq!(r.decision.code, VerdictCode::NoQuality);
+        assert_eq!(
+            insp.inspect(&GrayImage::new(200, 100, 250)).decision.code,
+            VerdictCode::NoQuality
+        );
     }
 
     #[test]
@@ -180,12 +325,6 @@ mod tests {
             }
         }
         let insp = Inspector::new(Config::default());
-        let r = insp.inspect(&blurred);
-        assert_eq!(
-            r.decision.code,
-            VerdictCode::NoQuality,
-            "message={}",
-            r.decision.message
-        );
+        assert_eq!(insp.inspect(&blurred).decision.code, VerdictCode::NoQuality);
     }
 }

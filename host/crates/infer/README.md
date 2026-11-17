@@ -34,7 +34,34 @@ cargo build --release -p glue-infer
 
 结论：**远小于 1e-5 对拍判据**（实测 < 1e-6），推理数值一致。
 
-## 4. 已知限制
+## 4. 接入 pipeline
+
+`glue-core` 定义 `ObjectDetector` trait；`glue-pipeline::Inspector::with_detectors` 注入；
+`cli` / `agent` / `app` 通过 `glue_infer::detectors_from_config(&cfg)` 按配置构建，推理不可用时打印告警并回退启发式（原因写入 `FrameResult.notes`）。
+
+`configs/default.yaml` 中打开（默认关闭）：
+
+```yaml
+locate:
+  enabled: true
+  type: rpn
+  weights: outputs/onnx/rpn.onnx   # 训练后的权重
+  input_size: 320
+  score_thr: 0.5
+reflect:
+  enabled: true
+  type: yolo5fl
+  weights: outputs/onnx/yolo5fl.onnx
+  input_size: 128
+  score_thr: 0.3
+```
+
+冒烟结果（**随机权重**，只验证链路，不代表精度）：
+- 仅开 RPN：每帧输出约 240–280 个候选框 → 判定 BROKEN（随机模型的预期表现）；
+- 仅开 YOLO：正常/过窄/过宽 → `REFLECTION_SUSPECT`，断胶仍 `BROKEN`，无胶仍 `NO_ROI`，坏图仍 `NO_QUALITY`；
+- 训练后的权重接入后，才可做"判定级"对拍（E-08）。
+
+## 5. 已知限制
 
 1. **未接入 pipeline**：当前 `glue-vision::locate` 仍是启发式；RPN 的 ONNX 特征图尚未替换它（下一步：`Detector` trait + 配置开关）；
 2. **YOLO 静态 batch**：端侧按单帧推理，暂不支持动态 batch；

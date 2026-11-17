@@ -12,6 +12,8 @@ pub struct Config {
     pub calib: CalibCfg,
     pub decide: DecideCfg,
     pub quality: QualityCfg,
+    pub locate: LocateCfg,
+    pub reflect: ReflectCfg,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -20,7 +22,6 @@ pub struct PreprocessCfg {
     pub segment: SegmentCfg,
     pub morph: MorphCfg,
 }
-
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(default)]
@@ -95,6 +96,65 @@ pub struct CalibCfg {
     pub mm_per_px: Option<f64>,
 }
 
+/// 推理定位（RPN）配置：默认关闭，打开后由 `glue-infer` 提供 RoI。
+#[derive(Debug, Clone, Deserialize)]
+#[serde(default)]
+pub struct LocateCfg {
+    pub enabled: bool,
+    #[serde(rename = "type")]
+    pub kind: String,
+    pub weights: Option<String>,
+    pub input_size: usize,
+    pub score_thr: f64,
+    pub pre_topk: usize,
+    pub post_topk: usize,
+    pub min_size: f64,
+}
+
+impl Default for LocateCfg {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            kind: "heuristic".into(),
+            weights: None,
+            input_size: 320,
+            score_thr: 0.5,
+            pre_topk: 1000,
+            post_topk: 300,
+            min_size: 8.0,
+        }
+    }
+}
+
+/// 反光检测（YOLO）配置：默认关闭。
+#[derive(Debug, Clone, Deserialize)]
+#[serde(default)]
+pub struct ReflectCfg {
+    pub enabled: bool,
+    #[serde(rename = "type")]
+    pub kind: String,
+    pub weights: Option<String>,
+    pub input_size: usize,
+    pub score_thr: f64,
+}
+
+impl Default for ReflectCfg {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            kind: "null_reflector".into(),
+            weights: None,
+            input_size: 416,
+            score_thr: 0.5,
+        }
+    }
+}
+
+/// 检测器抽象：由 `glue-infer` 实现（RPN 定位 / YOLO 反光）。
+/// 输入为灰度图原始字节（行优先、0..255），返回像素坐标框。
+pub trait ObjectDetector: Send + Sync {
+    fn detect(&self, gray: &[u8], w: usize, h: usize) -> anyhow::Result<Vec<BBox>>;
+}
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(default)]
@@ -245,6 +305,9 @@ pub struct FrameResult {
     pub measure: Option<Measure>,
     pub decision: Decision,
     pub timings: Timings,
+    /// 降级/推理失败等说明（空表示无异常），用于满足"不静默降级"。
+    #[serde(default)]
+    pub notes: Vec<String>,
 }
 
 /// 图像质量指标（由 `glue-vision::quality_metrics` 计算），供判定使用。
@@ -306,6 +369,30 @@ pub fn decide_quality(cfg: &Config, m: &QualityMetrics) -> Option<Decision> {
         });
     }
     None
+}
+
+/// 反光复判：检测到反光框且开启 `reflection_override` 时，把可复判的缺陷改为"反光可疑"，
+/// 提示调整光源/参数，而不是直接判废（论文 5.3.3）。断胶不覆盖（需人工确认）。
+pub fn decide_with_reflection(cfg: &Config, mut d: Decision, reflection_boxes: usize) -> Decision {
+    if reflection_boxes == 0 || !cfg.decide.reflection_override {
+        return d;
+    }
+    if matches!(
+        d.code,
+        VerdictCode::TooNarrow
+            | VerdictCode::TooWide
+            | VerdictCode::WarnNarrow
+            | VerdictCode::WarnWide
+            | VerdictCode::Ok
+    ) {
+        let prev = d.code.as_str();
+        d.code = VerdictCode::ReflectionSuspect;
+        d.message = format!(
+            "检测到反光干扰（{} 处），原判定 {}；建议调整光源/曝光后复判",
+            reflection_boxes, prev
+        );
+    }
+    d
 }
 
 pub fn decide(cfg: &Config, roi_count: usize, measure: Option<&Measure>) -> Decision {
@@ -464,6 +551,39 @@ mod tests {
         let mut cfg = Config::default();
         cfg.quality.enabled = false;
         assert!(decide_quality(&cfg, &q(0.0, 0.0, 0.0, 1.0)).is_none());
+    }
+
+    #[test]
+    fn reflection_overrides_width_defect() {
+        let cfg = Config::default();
+        let base = Decision {
+            code: VerdictCode::TooNarrow,
+            width_mm: Some(9.0),
+            message: "过窄".into(),
+        };
+        let d = decide_with_reflection(&cfg, base, 2);
+        assert_eq!(d.code, VerdictCode::ReflectionSuspect);
+        assert!(d.message.contains("反光"));
+    }
+
+    #[test]
+    fn reflection_keeps_broken() {
+        let cfg = Config::default();
+        let base = Decision {
+            code: VerdictCode::Broken,
+            width_mm: None,
+            message: "断胶".into(),
+        };
+        assert_eq!(
+            decide_with_reflection(&cfg, base, 1).code,
+            VerdictCode::Broken
+        );
+    }
+
+    #[test]
+    fn locate_and_reflect_default_off() {
+        let c = Config::default();
+        assert!(!c.locate.enabled && !c.reflect.enabled);
     }
 
     #[test]

@@ -942,6 +942,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "glue-core",
+ "glue-infer",
  "glue-pipeline",
  "glue-vision",
  "image",
@@ -956,6 +957,7 @@ dependencies = [
  "anyhow",
  "eframe",
  "glue-core",
+ "glue-infer",
  "glue-pipeline",
  "glue-store",
  "glue-vision",
@@ -971,6 +973,7 @@ dependencies = [
  "anyhow",
  "clap",
  "glue-core",
+ "glue-infer",
  "glue-pipeline",
  "glue-vision",
  "image",
@@ -1004,6 +1007,7 @@ dependencies = [
 name = "glue-pipeline"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "glue-core",
  "glue-vision",
  "rayon",

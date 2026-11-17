@@ -48,7 +48,7 @@ fn main() -> Result<()> {
         cfg.calib.enabled = true;
         cfg.calib.mm_per_px = Some(mm);
     }
-    let inspector = Inspector::new(cfg);
+    let inspector = inspector(cfg);
 
     match watch_secs {
         Some(secs) => {
@@ -64,6 +64,19 @@ fn main() -> Result<()> {
             Ok(())
         }
     }
+}
+
+/// 按配置构建检测器（RPN 定位 / YOLO 反光）；推理配置有误时打印告警并回退启发式链路。
+fn inspector(cfg: Config) -> Inspector {
+    let mut detectors = glue_pipeline::Detectors::default();
+    match glue_infer::detectors_from_config(&cfg) {
+        Ok((locate, reflect)) => {
+            detectors.locate = locate;
+            detectors.reflect = reflect;
+        }
+        Err(e) => eprintln!("[warn] 推理模块未启用：{e}"),
+    }
+    Inspector::with_detectors(cfg, detectors)
 }
 
 fn run_once(

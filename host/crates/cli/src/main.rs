@@ -74,6 +74,19 @@ fn main() -> Result<()> {
     }
 }
 
+/// 按配置构建检测器（RPN 定位 / YOLO 反光）；推理配置有误时打印告警并回退启发式链路。
+fn inspector(cfg: Config) -> Inspector {
+    let mut detectors = glue_pipeline::Detectors::default();
+    match glue_infer::detectors_from_config(&cfg) {
+        Ok((locate, reflect)) => {
+            detectors.locate = locate;
+            detectors.reflect = reflect;
+        }
+        Err(e) => eprintln!("[warn] 推理模块未启用：{e}"),
+    }
+    Inspector::with_detectors(cfg, detectors)
+}
+
 fn load_config(path: &Path, mm_per_px: Option<f64>) -> Result<Config> {
     let mut cfg =
         Config::from_yaml(path).with_context(|| format!("读取配置失败：{}", path.display()))?;
@@ -115,7 +128,7 @@ fn inspect(
     mm_per_px: Option<f64>,
 ) -> Result<()> {
     let cfg = load_config(config, mm_per_px)?;
-    let inspector = Inspector::new(cfg);
+    let inspector = inspector(cfg);
     let files = collect_images(input)?;
     let mut records = Vec::with_capacity(files.len());
     for path in &files {
@@ -242,7 +255,7 @@ fn gen(out: &Path, count: usize, size: &str, mm_per_px: f64) -> Result<()> {
 
 fn bench(config: &Path, input: &Path, iters: usize) -> Result<()> {
     let cfg = load_config(config, None)?;
-    let inspector = Inspector::new(cfg);
+    let inspector = inspector(cfg);
     let files = collect_images(input)?;
     let images: Vec<GrayImage> = files
         .iter()

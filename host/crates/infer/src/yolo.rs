@@ -42,7 +42,12 @@ fn iou(a: &Detection, b: &Detection) -> f32 {
 }
 
 /// 解码拼接后的输出（shape `(1, N, 5+nc)`，`nc=1`），返回过滤后的检测框。
-pub fn decode(out: &[f32], (img_w, img_h): (usize, usize), o_shape: &[usize], thr: f32) -> Result<Vec<Detection>> {
+pub fn decode(
+    out: &[f32],
+    (img_w, img_h): (usize, usize),
+    o_shape: &[usize],
+    thr: f32,
+) -> Result<Vec<Detection>> {
     if o_shape.len() != 3 {
         bail!("YOLO 输出应为 (B,N,6)，实际 {o_shape:?}");
     }
@@ -59,7 +64,10 @@ pub fn decode(out: &[f32], (img_w, img_h): (usize, usize), o_shape: &[usize], th
         let cells = gh * gw;
         let rows = cells * 3;
         if offset + rows > total {
-            bail!("输出长度不足：level {l} 需要 {rows} 行，剩余 {}", total - offset);
+            bail!(
+                "输出长度不足：level {l} 需要 {rows} 行，剩余 {}",
+                total - offset
+            );
         }
         for (a, anchor) in ANCHORS[l].iter().enumerate() {
             let (aw, ah) = (anchor[0], anchor[1]);
@@ -111,7 +119,10 @@ mod tests {
     use super::*;
 
     fn level_sizes(img_w: usize, img_h: usize) -> Vec<usize> {
-        STRIDES.iter().map(|s| (img_w / s) * (img_h / s) * 3).collect()
+        STRIDES
+            .iter()
+            .map(|s| (img_w / s) * (img_h / s) * 3)
+            .collect()
     }
 
     #[test]

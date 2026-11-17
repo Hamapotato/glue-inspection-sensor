@@ -10,10 +10,7 @@
 use std::path::Path;
 
 use anyhow::{bail, Context, Result};
-use tract_onnx::prelude::*;
-
-mod rpn;
-mod yolo;
+use glue_infer::{rpn, run_model, yolo};
 
 fn main() -> Result<()> {
     let args: Vec<String> = std::env::args().skip(1).collect();
@@ -44,7 +41,10 @@ fn print_help() {
 }
 
 fn arg<'a>(args: &'a [String], key: &str) -> Option<&'a str> {
-    args.iter().position(|a| a == key).and_then(|i| args.get(i + 1)).map(|s| s.as_str())
+    args.iter()
+        .position(|a| a == key)
+        .and_then(|i| args.get(i + 1))
+        .map(|s| s.as_str())
 }
 
 fn parse_shape(s: &str) -> Result<(usize, usize)> {
@@ -72,33 +72,6 @@ fn write_f32(path: &Path, data: &[f32]) -> Result<()> {
     }
     std::fs::write(path, out)?;
     Ok(())
-}
-
-/// 加载模型并运行一次，返回按模型输出顺序的张量（形状, 数据）。
-pub fn run_model(
-    model_path: &Path,
-    input: &[f32],
-    (w, h): (usize, usize),
-) -> Result<Vec<(Vec<usize>, Vec<f32>)>> {
-    if input.len() != w * h {
-        bail!("输入像素数 {} 与形状 {}x{} 不匹配", input.len(), w, h);
-    }
-    let model = tract_onnx::onnx()
-        .model_for_path(model_path)
-        .with_context(|| format!("加载 ONNX 失败：{}", model_path.display()))?
-        .into_optimized()
-        .context("优化模型失败")?
-        .into_runnable()
-        .context("构建可运行模型失败")?;
-
-    let tensor = Tensor::from_shape(&[1usize, 1, h, w], input)?;
-    let outputs = model.run(tvec!(tensor.into()))?;
-    let mut result = Vec::with_capacity(outputs.len());
-    for value in outputs {
-        let view = value.to_array_view::<f32>()?;
-        result.push((view.shape().to_vec(), view.iter().copied().collect()));
-    }
-    Ok(result)
 }
 
 fn cmd_run(args: &[String]) -> Result<()> {
@@ -134,7 +107,9 @@ fn cmd_rpn(args: &[String]) -> Result<()> {
     let input = arg(args, "--input").context("缺少 --input")?;
     let shape = parse_shape(arg(args, "--in-shape").context("缺少 --in-shape")?)?;
     let out = arg(args, "--out").context("缺少 --out")?;
-    let score_thr: f32 = arg(args, "--score-thr").and_then(|s| s.parse().ok()).unwrap_or(0.5);
+    let score_thr: f32 = arg(args, "--score-thr")
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(0.5);
 
     let data = read_f32(Path::new(input))?;
     let outputs = run_model(Path::new(model), &data, shape)?;
@@ -167,7 +142,9 @@ fn cmd_yolo(args: &[String]) -> Result<()> {
     let input = arg(args, "--input").context("缺少 --input")?;
     let shape = parse_shape(arg(args, "--in-shape").context("缺少 --in-shape")?)?;
     let out = arg(args, "--out").context("缺少 --out")?;
-    let score_thr: f32 = arg(args, "--score-thr").and_then(|s| s.parse().ok()).unwrap_or(0.5);
+    let score_thr: f32 = arg(args, "--score-thr")
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(0.5);
 
     let data = read_f32(Path::new(input))?;
     let outputs = run_model(Path::new(model), &data, shape)?;

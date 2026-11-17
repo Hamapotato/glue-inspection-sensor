@@ -31,7 +31,12 @@ pub fn anchors(h: usize, w: usize, stride: usize, num: usize) -> Vec<Anchor> {
                 for ratio in RATIOS {
                     let aw = scale * ratio.sqrt();
                     let ah = scale / ratio.sqrt();
-                    out.push(Anchor { cx, cy, w: aw, h: ah });
+                    out.push(Anchor {
+                        cx,
+                        cy,
+                        w: aw,
+                        h: ah,
+                    });
                 }
             }
         }
@@ -89,7 +94,13 @@ pub fn proposals(
         .map(|i| {
             let d = [reg[i * 4], reg[i * 4 + 1], reg[i * 4 + 2], reg[i * 4 + 3]];
             let (x1, y1, x2, y2) = decode(&anchors[i], d);
-            RpnBox { x1, y1, x2, y2, score: sigmoid(cls[i]) }
+            RpnBox {
+                x1,
+                y1,
+                x2,
+                y2,
+                score: sigmoid(cls[i]),
+            }
         })
         .filter(|b| (b.x2 - b.x1) >= min_size && (b.y2 - b.y1) >= min_size)
         .collect();
@@ -134,7 +145,12 @@ mod tests {
 
     #[test]
     fn decode_zero_delta_is_anchor_box() {
-        let a = Anchor { cx: 100.0, cy: 50.0, w: 40.0, h: 20.0 };
+        let a = Anchor {
+            cx: 100.0,
+            cy: 50.0,
+            w: 40.0,
+            h: 20.0,
+        };
         let (x1, y1, x2, y2) = decode(&a, [0.0, 0.0, 0.0, 0.0]);
         assert!((x1 - 80.0).abs() < 1e-5 && (y1 - 40.0).abs() < 1e-5);
         assert!((x2 - 120.0).abs() < 1e-5 && (y2 - 60.0).abs() < 1e-5);
@@ -143,9 +159,24 @@ mod tests {
     #[test]
     fn nms_suppresses_overlap() {
         let anchors = vec![
-            Anchor { cx: 100.0, cy: 100.0, w: 40.0, h: 20.0 },
-            Anchor { cx: 101.0, cy: 100.0, w: 40.0, h: 20.0 },
-            Anchor { cx: 400.0, cy: 100.0, w: 40.0, h: 20.0 },
+            Anchor {
+                cx: 100.0,
+                cy: 100.0,
+                w: 40.0,
+                h: 20.0,
+            },
+            Anchor {
+                cx: 101.0,
+                cy: 100.0,
+                w: 40.0,
+                h: 20.0,
+            },
+            Anchor {
+                cx: 400.0,
+                cy: 100.0,
+                w: 40.0,
+                h: 20.0,
+            },
         ];
         let reg = vec![0.0; 12];
         // 分数：第一个最高、第二个次之、第三个较低

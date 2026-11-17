@@ -10,3 +10,6 @@ glue-vision = { path = "../vision" }
 serde = { workspace = true }
 serde_json = { workspace = true }
 rayon = { workspace = true }
+
+[dev-dependencies]
+anyhow = { workspace = true }

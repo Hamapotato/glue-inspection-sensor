@@ -4,6 +4,10 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 
+[lib]
+name = "glue_infer"
+path = "src/lib.rs"
+
 [[bin]]
 name = "glue-infer"
 path = "src/main.rs"
