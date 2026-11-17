@@ -5,6 +5,18 @@
 
 ---
 
+## 0. 打包与上板（推荐，先看这里）
+
+```powershell
+# 一条命令生成部署包（aarch64 + x86_64 两个静态二进制 + 配置 + 样例 + 脚本）
+powershell -ExecutionPolicy Bypass -File scripts\build-dist.ps1
+# 产物：dist/glue-board-<日期>.tar.gz
+```
+
+上板步骤、预期输出、故障排查见 **[deploy/UBUNTU-CHECKLIST.md](deploy/UBUNTU-CHECKLIST.md)**（30 分钟清单）。
+
+---
+
 ## 1. 交叉编译（在 Windows 开发机）
 
 ```powershell

@@ -152,6 +152,9 @@ host/
 # 交叉编译 RK3588 版（产物 dist/rk3588）
 powershell -ExecutionPolicy Bypass -File scripts\build-aarch64.ps1
 
+# 打包 Ubuntu 板端部署包（aarch64 + x86_64，产物 dist/glue-board-*.tar.gz）
+powershell -ExecutionPolicy Bypass -File ..\scripts\build-dist.ps1
+
 # 测试 / 格式 / 检查
 cargo test --release
 cargo fmt --all -- --check
@@ -163,8 +166,9 @@ cargo clippy --all-targets -- -D warnings
 ## 8.1 部署（RK3588）
 
 - 无界面服务：`scripts/build-aarch64.ps1` 交叉编译 `glue-agent`（aarch64-musl 静态单文件）；
-- 拷板、systemd、字体、GUI 板端编译见 [DEPLOY-RK3588.md](DEPLOY-RK3588.md)；
-- 部署相关改动必须同时更新该文档。
+- **部署包**：`../scripts/build-dist.ps1` 同时构建 aarch64/x86_64 并组装 `install.sh` / `verify.sh` / 样例；
+- 上板清单：[deploy/UBUNTU-CHECKLIST.md](deploy/UBUNTU-CHECKLIST.md)；拷板、systemd、字体、GUI 板端编译见 [DEPLOY-RK3588.md](DEPLOY-RK3588.md)；
+- 部署相关改动必须同时更新上述文档与清单。
 
 ---
 
