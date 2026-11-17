@@ -65,7 +65,7 @@ anchors 生成、RPN 解码 + NMS、YOLO 五尺度解码 + NMS、命令行原始
 ## 5. 局限与下一步
 
 1. **无训练权重参与**：本次是结构验证。等真实数据训练收敛后，用 `--rpn-weights` / `--yolo-weights` 重新导出并做同样的对拍（脚本已支持）；
-2. **未接入 pipeline**：Rust 侧 `glue-infer` 已完成原始推理、解码与 NMS，并与 onnxruntime 对拍通过；尚未替换 `glue-vision::locate` 的启发式定位（E-07）；
+2. **已接入 pipeline**：Rust 侧 `glue-infer` 通过 `locate.enabled` / `reflect.enabled` 接入（失败回退启发式并写 `FrameResult.notes`）；判定级对拍待训练权重（E-08）；
 3. **RKNN 未验证**：ONNX → RKNN 转换需在 RK3588 工具链上执行（x86 Linux 上可用 rknn-toolkit2），本机 Windows 未做；
 4. **精度评测另算**：ONNX 一致性 ≠ 检测精度，指标评测仍按 `p0-spec.md` 的真实数据流程执行。
 
@@ -80,3 +80,46 @@ anchors 生成、RPN 解码 + NMS、YOLO 五尺度解码 + NMS、命令行原始
 ```
 
 产物默认在 `outputs/onnx/`（已被 `.gitignore` 忽略，不入库）。
+
+## 7. 推理性能基线（CPU，tract 纯 Rust）
+
+> 目的：回答"带推理后还能不能实时"。**随机权重**只测架构成本，不代表精度；样本为 20 张合成图 × 10 轮 = 200 帧/组，输入 1280×960 灰度。
+
+环境：Intel i7-13650HX（20 线程）、Windows x86_64、`tract-onnx 0.21`（release 构建）、ONNX 由 `scripts/export_onnx.py` 随机权重导出。
+配置：`score_thr=0.1`（随机权重下让候选框路径真正执行，属于偏保守的成本上界）。
+
+| 配置 | p50 | p95 | 最大 | 吞吐 |
+| --- | --- | --- | --- | --- |
+| 基线（传统链路 + 质量门控） | **10.13 ms** | 20.74 ms | 23.58 ms | **97.8 fps** |
+| + RPN 定位（320×320，0.99M 参数） | **34.43 ms** | 41.32 ms | 54.64 ms | 37.8 fps |
+| + YOLO 反光（128×128，6.98M 参数） | **50.06 ms** | 63.38 ms | 147.42 ms | 25.5 fps |
+| 两者都开 | **74.20 ms** | 81.57 ms | 178.65 ms | 18.2 fps |
+
+成本拆解（与上表吻合）：
+
+| 环节 | 增量 |
+| --- | --- |
+| 传统链路（质量门控 2.6 + 定位 6.0 + 量测 4.0） | ~10 ms |
+| RPN 推理 + 解码/NMS | ~24 ms |
+| YOLO 推理 + 解码/NMS | ~40 ms |
+| 首帧模型加载（RPN / YOLO） | 45.5 ms / 135.5 ms（含加载） |
+
+结论：
+
+1. **传统链路满足 30 fps**（p50 10 ms、p95 20.7 ms）；
+2. **CPU 上带推理不满足 30 fps**：RPN 单独 p95 已 41 ms，双开 p95 82 ms；
+3. 板端 aarch64 CPU 通常更慢（约 1.5–3×），**正式实时必须走 RKNN/NPU 或降输入/量化**；
+4. 随机权重候选框偏多，训练权重 + `score_thr=0.5` 只能小幅降低解码/NMS 成本，卷积仍是主要开销。
+
+复现（配置文件示例，放在 `outputs/` 下，不入库）：
+
+```yaml
+locate:  {enabled: true, type: rpn, weights: outputs/onnx/rpn.onnx, input_size: 320, score_thr: 0.1}
+reflect: {enabled: true, type: yolo5fl, weights: outputs/onnx/yolo5fl.onnx, input_size: 128, score_thr: 0.1}
+```
+
+```powershell
+\host\target\release\glue-cli.exe bench --config outputs\perf-both.yaml --input outputs\rust_samples --iters 10
+```
+
+限制：以上为**本机 x86 CPU** 实测，不能直接外推到 RK3588；随机权重与训练权重在同一结构下的卷积耗时应接近，但候选框数量会变，解码/NMS 成本会略降。
