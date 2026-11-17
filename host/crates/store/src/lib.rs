@@ -1,4 +1,4 @@
-﻿//! 检测记录存储（SQLite）：历史查询、统计。
+//! 检测记录存储（SQLite）：历史查询、统计。
 //!
 //! 表结构见 docs/host-software-architecture.md §6.4；首版只存单帧结果，位置级结果与
 //! 图片存档后续扩展。
@@ -68,7 +68,13 @@ impl Store {
         Ok(Self { conn })
     }
 
-    pub fn insert(&self, file: &str, verdict: &str, width_mm: Option<f64>, total_ms: f64) -> Result<i64> {
+    pub fn insert(
+        &self,
+        file: &str,
+        verdict: &str,
+        width_mm: Option<f64>,
+        total_ms: f64,
+    ) -> Result<i64> {
         let ts = Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
         self.conn.execute(
             "INSERT INTO inspection (ts, file, verdict, width_mm, total_ms) VALUES (?1, ?2, ?3, ?4, ?5)",
@@ -117,8 +123,12 @@ impl Store {
             }
             lats.push(r.total_ms);
         }
-        by_verdict.sort_by(|a, b| b.1.cmp(&a.1));
-        let ok = by_verdict.iter().find(|(k, _)| k == "OK").map(|(_, n)| *n).unwrap_or(0);
+        by_verdict.sort_by_key(|(_, n)| std::cmp::Reverse(*n));
+        let ok = by_verdict
+            .iter()
+            .find(|(k, _)| k == "OK")
+            .map(|(_, n)| *n)
+            .unwrap_or(0);
         lats.sort_by(|a, b| a.partial_cmp(b).unwrap());
         let pct = |p: f64| -> f64 {
             if lats.is_empty() {
@@ -132,11 +142,19 @@ impl Store {
         } else {
             let mn = widths.iter().cloned().fold(f64::INFINITY, f64::min);
             let mx = widths.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
-            (Some(mn), Some(mx), Some(widths.iter().sum::<f64>() / widths.len() as f64))
+            (
+                Some(mn),
+                Some(mx),
+                Some(widths.iter().sum::<f64>() / widths.len() as f64),
+            )
         };
         Ok(Stats {
             total,
-            ok_rate: if total > 0 { ok as f64 / total as f64 } else { 0.0 },
+            ok_rate: if total > 0 {
+                ok as f64 / total as f64
+            } else {
+                0.0
+            },
             by_verdict,
             width_mean: wmean,
             width_min: wmin,

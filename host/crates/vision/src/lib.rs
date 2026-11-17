@@ -1,8 +1,8 @@
-﻿//! 视觉算法：灰度图、Otsu、形态学、连通域、Zhang-Suen 骨架、骨架长度、宽度换算。
+//! 视觉算法：灰度图、Otsu、形态学、连通域、Zhang-Suen 骨架、骨架长度、宽度换算。
 //! 纯 Rust 实现（不依赖 OpenCV），语义对齐 Python 端 `algo/preprocess.py`、`algo/measure.py`。
 
 use anyhow::{bail, Result};
-use glue_core::{BBox, Config, Measure};
+use glue_core::{BBox, Config, Measure, QualityMetrics};
 
 #[derive(Debug, Clone)]
 pub struct GrayImage {
@@ -13,7 +13,11 @@ pub struct GrayImage {
 
 impl GrayImage {
     pub fn new(w: usize, h: usize, fill: u8) -> Self {
-        Self { w, h, data: vec![fill; w * h] }
+        Self {
+            w,
+            h,
+            data: vec![fill; w * h],
+        }
     }
 
     pub fn from_vec(w: usize, h: usize, data: Vec<u8>) -> Result<Self> {
@@ -36,7 +40,11 @@ impl GrayImage {
     pub fn from_file(path: impl AsRef<std::path::Path>) -> Result<Self> {
         let img = image::open(path.as_ref())?.to_luma8();
         let (w, h) = img.dimensions();
-        Ok(Self { w: w as usize, h: h as usize, data: img.into_raw() })
+        Ok(Self {
+            w: w as usize,
+            h: h as usize,
+            data: img.into_raw(),
+        })
     }
 
     pub fn crop(&self, bbox: &BBox) -> Self {
@@ -62,7 +70,11 @@ pub struct BinaryMask {
 
 impl BinaryMask {
     pub fn new(w: usize, h: usize) -> Self {
-        Self { w, h, data: vec![false; w * h] }
+        Self {
+            w,
+            h,
+            data: vec![false; w * h],
+        }
     }
 
     #[inline]
@@ -106,8 +118,8 @@ pub fn otsu_threshold(img: &GrayImage) -> u8 {
     }
     let (mut w_bg, mut sum_bg) = (0u64, 0.0f64);
     let (mut best_t, mut best_var) = (0u8, -1.0f64);
-    for t in 0..256usize {
-        w_bg += hist[t];
+    for (t, &count) in hist.iter().enumerate() {
+        w_bg += count;
         if w_bg == 0 {
             continue;
         }
@@ -115,7 +127,7 @@ pub fn otsu_threshold(img: &GrayImage) -> u8 {
         if w_fg == 0 {
             break;
         }
-        sum_bg += t as f64 * hist[t] as f64;
+        sum_bg += t as f64 * count as f64;
         let m_bg = sum_bg / w_bg as f64;
         let m_fg = (sum_all - sum_bg) / w_fg as f64;
         let var = w_bg as f64 * w_fg as f64 * (m_bg - m_fg) * (m_bg - m_fg);
@@ -160,7 +172,10 @@ fn erode(mask: &BinaryMask, ksize: u32) -> BinaryMask {
             for &(dx, dy) in &offs {
                 let nx = x as i32 + dx;
                 let ny = y as i32 + dy;
-                if nx < 0 || ny < 0 || nx >= mask.w as i32 || ny >= mask.h as i32
+                if nx < 0
+                    || ny < 0
+                    || nx >= mask.w as i32
+                    || ny >= mask.h as i32
                     || !mask.get(nx as usize, ny as usize)
                 {
                     keep = false;
@@ -217,7 +232,16 @@ pub fn connected_components(mask: &BinaryMask, connectivity: u8, min_area: u32) 
     let (w, h) = (mask.w, mask.h);
     let mut seen = vec![false; w * h];
     let neighbors: Vec<(i32, i32)> = if connectivity >= 8 {
-        vec![(-1, -1), (0, -1), (1, -1), (-1, 0), (1, 0), (-1, 1), (0, 1), (1, 1)]
+        vec![
+            (-1, -1),
+            (0, -1),
+            (1, -1),
+            (-1, 0),
+            (1, 0),
+            (-1, 1),
+            (0, 1),
+            (1, 1),
+        ]
     } else {
         vec![(0, -1), (-1, 0), (1, 0), (0, 1)]
     };
@@ -264,7 +288,7 @@ pub fn connected_components(mask: &BinaryMask, connectivity: u8, min_area: u32) 
             }
         }
     }
-    out.sort_by(|a, b| b.area.cmp(&a.area));
+    out.sort_by_key(|c| std::cmp::Reverse(c.area));
     out
 }
 
@@ -365,12 +389,21 @@ pub fn skeleton_length(skel: &BinaryMask) -> f64 {
 pub fn measure_roi(roi: &GrayImage, cfg: &Config, mm_per_px: Option<f64>) -> Measure {
     let t = otsu_threshold(roi);
     let mask = threshold(roi, t);
-    let mask = morph(&mask, cfg.preprocess.morph.ksize, &cfg.preprocess.morph.order);
+    let mask = morph(
+        &mask,
+        cfg.preprocess.morph.ksize,
+        &cfg.preprocess.morph.order,
+    );
     let area = mask.count() as f64;
     let skel = zhang_suen_thinning(&mask);
     let length = skeleton_length(&skel);
     let width_px = if length > 0.0 { area / length } else { 0.0 };
-    Measure { area_px: area, length_px: length, width_px, width_mm: mm_per_px.map(|s| width_px * s) }
+    Measure {
+        area_px: area,
+        length_px: length,
+        width_px,
+        width_mm: mm_per_px.map(|s| width_px * s),
+    }
 }
 
 /// 在已有掩膜上量测（论文 4.4）：面积 ÷ 骨架长度，再乘标定系数。
@@ -381,7 +414,12 @@ pub fn measure_mask(mask: &BinaryMask, mm_per_px: Option<f64>) -> Measure {
     // 长度：直线胶条与骨架长度一致，且没有端部缩短问题。
     let length = mask_extent(mask);
     let width_px = if length > 0.0 { area / length } else { 0.0 };
-    Measure { area_px: area, length_px: length, width_px, width_mm: mm_per_px.map(|s| width_px * s) }
+    Measure {
+        area_px: area,
+        length_px: length,
+        width_px,
+        width_mm: mm_per_px.map(|s| width_px * s),
+    }
 }
 
 /// 掩膜沿主方向的投影跨度（对直线胶条即长度）。
@@ -447,6 +485,73 @@ pub fn locate_rois(img: &GrayImage, cfg: &Config) -> Vec<BBox> {
     locate(img, cfg).0
 }
 
+/// 图像质量指标：均值、5/95 分位与对比度、过曝比例、Laplacian 方差（清晰度）。
+/// 供 `glue-core::decide_quality` 做质量门控；阈值全部来自配置。
+pub fn quality_metrics(img: &GrayImage) -> QualityMetrics {
+    let n = img.data.len().max(1);
+    let mut hist = [0u64; 256];
+    let mut sum = 0.0f64;
+    let mut over = 0u64;
+    for &v in &img.data {
+        hist[v as usize] += 1;
+        sum += v as f64;
+        if v >= 240 {
+            over += 1;
+        }
+    }
+    let mean = sum / n as f64;
+    let pct = |p: f64| -> f64 {
+        let target = (p * n as f64).max(1.0) as u64;
+        let mut acc = 0u64;
+        for (i, &c) in hist.iter().enumerate() {
+            acc += c;
+            if acc >= target {
+                return i as f64;
+            }
+        }
+        255.0
+    };
+    let p05 = pct(0.05);
+    let p95 = pct(0.95);
+    let contrast = p95 - p05;
+    let overexposed_ratio = over as f64 / n as f64;
+
+    let (w, h) = (img.w, img.h);
+    let mut lap_sum = 0.0f64;
+    let mut lap_sq = 0.0f64;
+    let mut cnt = 0u64;
+    if w >= 3 && h >= 3 {
+        for y in 1..h - 1 {
+            for x in 1..w - 1 {
+                let c = img.get(x, y) as f64;
+                let lap = img.get(x - 1, y) as f64
+                    + img.get(x + 1, y) as f64
+                    + img.get(x, y - 1) as f64
+                    + img.get(x, y + 1) as f64
+                    - 4.0 * c;
+                lap_sum += lap;
+                lap_sq += lap * lap;
+                cnt += 1;
+            }
+        }
+    }
+    let sharpness = if cnt > 0 {
+        let m = lap_sum / cnt as f64;
+        (lap_sq / cnt as f64 - m * m).max(0.0)
+    } else {
+        0.0
+    };
+
+    QualityMetrics {
+        mean,
+        p05,
+        p95,
+        contrast,
+        overexposed_ratio,
+        sharpness,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -502,6 +607,59 @@ mod tests {
         let m = measure_roi(&strip(200, 80, 10), &Config::default(), Some(0.25));
         assert!((m.width_px - 10.0).abs() < 1.5, "宽度 {}", m.width_px);
         assert!((m.width_mm.unwrap() - 2.5).abs() < 0.4);
+    }
+
+    fn box_blur_quality(img: &GrayImage, r: usize) -> GrayImage {
+        let (w, h) = (img.w, img.h);
+        let mut out = GrayImage::new(w, h, 0);
+        for y in 0..h {
+            for x in 0..w {
+                let mut sum = 0u32;
+                let mut cnt = 0u32;
+                for dy in y.saturating_sub(r)..=(y + r).min(h - 1) {
+                    for dx in x.saturating_sub(r)..=(x + r).min(w - 1) {
+                        sum += img.get(dx, dy) as u32;
+                        cnt += 1;
+                    }
+                }
+                out.set(x, y, (sum / cnt) as u8);
+            }
+        }
+        out
+    }
+
+    #[test]
+    fn quality_dark_has_low_mean() {
+        let m = quality_metrics(&GrayImage::new(64, 64, 8));
+        assert!(m.mean < 20.0, "mean={}", m.mean);
+    }
+
+    #[test]
+    fn quality_overexposed_detected() {
+        let m = quality_metrics(&GrayImage::new(64, 64, 250));
+        assert!(m.overexposed_ratio > 0.9, "over={}", m.overexposed_ratio);
+    }
+
+    #[test]
+    fn quality_sharpness_drops_after_blur() {
+        let img = strip(160, 80, 10);
+        let sharp = quality_metrics(&img).sharpness;
+        let soft = quality_metrics(&box_blur_quality(&img, 6)).sharpness;
+        assert!(sharp > 50.0, "sharp={sharp}");
+        assert!(soft < sharp / 5.0, "sharp={sharp}, soft={soft}");
+    }
+
+    #[test]
+    fn quality_normal_strip_passes_default_gate() {
+        use glue_core::{decide_quality, Config};
+        let m = quality_metrics(&strip(160, 80, 10));
+        assert!(
+            decide_quality(&Config::default(), &m).is_none(),
+            "mean={} contrast={} sharp={}",
+            m.mean,
+            m.contrast,
+            m.sharpness
+        );
     }
 
     #[test]

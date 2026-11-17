@@ -1,41 +1,26 @@
-﻿//! 领域层：配置、结果类型与判定规则（论文 5.3.3），与 Python `algo/types.py`、`algo/decide.py` 语义一致。
+//! 领域层：配置、结果类型与判定规则（论文 5.3.3），与 Python `algo/types.py`、`algo/decide.py` 语义一致。
 
 use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Default, Deserialize)]
 #[serde(default)]
 pub struct Config {
     pub preprocess: PreprocessCfg,
     pub measure: MeasureCfg,
     pub calib: CalibCfg,
     pub decide: DecideCfg,
+    pub quality: QualityCfg,
 }
 
-impl Default for Config {
-    fn default() -> Self {
-        Self {
-            preprocess: PreprocessCfg::default(),
-            measure: MeasureCfg::default(),
-            calib: CalibCfg::default(),
-            decide: DecideCfg::default(),
-        }
-    }
-}
-
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Default, Deserialize)]
 #[serde(default)]
 pub struct PreprocessCfg {
     pub segment: SegmentCfg,
     pub morph: MorphCfg,
 }
 
-impl Default for PreprocessCfg {
-    fn default() -> Self {
-        Self { segment: SegmentCfg::default(), morph: MorphCfg::default() }
-    }
-}
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(default)]
@@ -45,7 +30,9 @@ pub struct SegmentCfg {
 
 impl Default for SegmentCfg {
     fn default() -> Self {
-        Self { method: "otsu".into() }
+        Self {
+            method: "otsu".into(),
+        }
     }
 }
 
@@ -58,7 +45,10 @@ pub struct MorphCfg {
 
 impl Default for MorphCfg {
     fn default() -> Self {
-        Self { ksize: 5, order: "open-close".into() }
+        Self {
+            ksize: 5,
+            order: "open-close".into(),
+        }
     }
 }
 
@@ -72,7 +62,11 @@ pub struct MeasureCfg {
 
 impl Default for MeasureCfg {
     fn default() -> Self {
-        Self { bfs_connectivity: 8, min_area_px: 200, width: WidthCfg::default() }
+        Self {
+            bfs_connectivity: 8,
+            min_area_px: 200,
+            width: WidthCfg::default(),
+        }
     }
 }
 
@@ -86,22 +80,21 @@ pub struct WidthCfg {
 
 impl Default for WidthCfg {
     fn default() -> Self {
-        Self { standard_mm: 10.0, warn_delta_mm: 0.5, alarm_delta_mm: 1.0 }
+        Self {
+            standard_mm: 10.0,
+            warn_delta_mm: 0.5,
+            alarm_delta_mm: 1.0,
+        }
     }
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Default, Deserialize)]
 #[serde(default)]
 pub struct CalibCfg {
     pub enabled: bool,
     pub mm_per_px: Option<f64>,
 }
 
-impl Default for CalibCfg {
-    fn default() -> Self {
-        Self { enabled: false, mm_per_px: None }
-    }
-}
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(default)]
@@ -112,7 +105,35 @@ pub struct DecideCfg {
 
 impl Default for DecideCfg {
     fn default() -> Self {
-        Self { broken_min_rois: 2, reflection_override: true }
+        Self {
+            broken_min_rois: 2,
+            reflection_override: true,
+        }
+    }
+}
+
+/// 图像质量门控（论文未设该环节，属于工程增强；阈值走配置）。
+#[derive(Debug, Clone, Deserialize)]
+#[serde(default)]
+pub struct QualityCfg {
+    pub enabled: bool,
+    pub min_mean: f64,
+    pub max_mean: f64,
+    pub max_overexposed_ratio: f64,
+    pub min_contrast: f64,
+    pub min_sharpness: f64,
+}
+
+impl Default for QualityCfg {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            min_mean: 20.0,
+            max_mean: 235.0,
+            max_overexposed_ratio: 0.30,
+            min_contrast: 25.0,
+            min_sharpness: 10.0,
+        }
     }
 }
 
@@ -157,6 +178,7 @@ impl BBox {
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum VerdictCode {
     Ok,
+    NoQuality,
     NoRoi,
     Broken,
     TooNarrow,
@@ -171,6 +193,7 @@ impl VerdictCode {
     pub fn as_str(self) -> &'static str {
         match self {
             VerdictCode::Ok => "OK",
+            VerdictCode::NoQuality => "NO_QUALITY",
             VerdictCode::NoRoi => "NO_ROI",
             VerdictCode::Broken => "BROKEN",
             VerdictCode::TooNarrow => "TOO_NARROW",
@@ -182,7 +205,13 @@ impl VerdictCode {
     }
 
     pub fn is_defect(self) -> bool {
-        !matches!(self, VerdictCode::Ok | VerdictCode::ReflectionSuspect | VerdictCode::NoRoi)
+        !matches!(
+            self,
+            VerdictCode::Ok
+                | VerdictCode::ReflectionSuspect
+                | VerdictCode::NoRoi
+                | VerdictCode::NoQuality
+        )
     }
 }
 
@@ -203,6 +232,8 @@ pub struct Decision {
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Timings {
+    #[serde(default)]
+    pub quality_ms: f64,
     pub locate_ms: f64,
     pub measure_ms: f64,
     pub total_ms: f64,
@@ -214,6 +245,67 @@ pub struct FrameResult {
     pub measure: Option<Measure>,
     pub decision: Decision,
     pub timings: Timings,
+}
+
+/// 图像质量指标（由 `glue-vision::quality_metrics` 计算），供判定使用。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct QualityMetrics {
+    pub mean: f64,
+    pub p05: f64,
+    pub p95: f64,
+    pub contrast: f64,
+    pub overexposed_ratio: f64,
+    pub sharpness: f64,
+}
+
+/// 质量门控判定：返回 Some(Decision) 表示"无法判定"，应跳过后续检测。
+pub fn decide_quality(cfg: &Config, m: &QualityMetrics) -> Option<Decision> {
+    let q = &cfg.quality;
+    if !q.enabled {
+        return None;
+    }
+    if m.mean < q.min_mean {
+        return Some(Decision {
+            code: VerdictCode::NoQuality,
+            width_mm: None,
+            message: format!(
+                "无法判定：图像过暗（均值 {:.0} < {:.0}）",
+                m.mean, q.min_mean
+            ),
+        });
+    }
+    if m.overexposed_ratio > q.max_overexposed_ratio || m.mean > q.max_mean {
+        return Some(Decision {
+            code: VerdictCode::NoQuality,
+            width_mm: None,
+            message: format!(
+                "无法判定：图像过曝（饱和像素 {:.0}% > {:.0}%）",
+                m.overexposed_ratio * 100.0,
+                q.max_overexposed_ratio * 100.0
+            ),
+        });
+    }
+    if m.contrast < q.min_contrast {
+        return Some(Decision {
+            code: VerdictCode::NoQuality,
+            width_mm: None,
+            message: format!(
+                "无法判定：对比度过低（{:.0} < {:.0}）",
+                m.contrast, q.min_contrast
+            ),
+        });
+    }
+    if m.sharpness < q.min_sharpness {
+        return Some(Decision {
+            code: VerdictCode::NoQuality,
+            width_mm: None,
+            message: format!(
+                "无法判定：图像模糊（清晰度 {:.1} < {:.1}）",
+                m.sharpness, q.min_sharpness
+            ),
+        });
+    }
+    None
 }
 
 pub fn decide(cfg: &Config, roi_count: usize, measure: Option<&Measure>) -> Decision {
@@ -249,17 +341,33 @@ pub fn decide(cfg: &Config, roi_count: usize, measure: Option<&Measure>) -> Deci
     let warn = cfg.measure.width.warn_delta_mm;
 
     let (code, msg) = if delta <= -alarm {
-        (VerdictCode::TooNarrow, format!("过窄：{mm:.2} mm，低于报警线 {:.1} mm", std - alarm))
+        (
+            VerdictCode::TooNarrow,
+            format!("过窄：{mm:.2} mm，低于报警线 {:.1} mm", std - alarm),
+        )
     } else if delta >= alarm {
-        (VerdictCode::TooWide, format!("过宽：{mm:.2} mm，高于报警线 {:.1} mm", std + alarm))
+        (
+            VerdictCode::TooWide,
+            format!("过宽：{mm:.2} mm，高于报警线 {:.1} mm", std + alarm),
+        )
     } else if delta <= -warn {
-        (VerdictCode::WarnNarrow, format!("预警过窄：{mm:.2} mm，预警线 {:.1} mm", std - warn))
+        (
+            VerdictCode::WarnNarrow,
+            format!("预警过窄：{mm:.2} mm，预警线 {:.1} mm", std - warn),
+        )
     } else if delta >= warn {
-        (VerdictCode::WarnWide, format!("预警过宽：{mm:.2} mm，预警线 {:.1} mm", std + warn))
+        (
+            VerdictCode::WarnWide,
+            format!("预警过宽：{mm:.2} mm，预警线 {:.1} mm", std + warn),
+        )
     } else {
         (VerdictCode::Ok, format!("合格：{mm:.2} mm"))
     };
-    Decision { code, width_mm, message: msg }
+    Decision {
+        code,
+        width_mm,
+        message: msg,
+    }
 }
 
 #[cfg(test)]
@@ -267,12 +375,20 @@ mod tests {
     use super::*;
 
     fn m(width: Option<f64>) -> Measure {
-        Measure { area_px: 1.0, length_px: 1.0, width_px: 1.0, width_mm: width }
+        Measure {
+            area_px: 1.0,
+            length_px: 1.0,
+            width_px: 1.0,
+            width_mm: width,
+        }
     }
 
     #[test]
     fn broken_when_multiple_rois() {
-        assert_eq!(decide(&Config::default(), 2, None).code, VerdictCode::Broken);
+        assert_eq!(
+            decide(&Config::default(), 2, None).code,
+            VerdictCode::Broken
+        );
     }
 
     #[test]
@@ -282,17 +398,72 @@ mod tests {
 
     #[test]
     fn ok_within_warn() {
-        assert_eq!(decide(&Config::default(), 1, Some(&m(Some(10.2)))).code, VerdictCode::Ok);
+        assert_eq!(
+            decide(&Config::default(), 1, Some(&m(Some(10.2)))).code,
+            VerdictCode::Ok
+        );
     }
 
     #[test]
     fn too_narrow_at_alarm_line() {
-        assert_eq!(decide(&Config::default(), 1, Some(&m(Some(9.0)))).code, VerdictCode::TooNarrow);
+        assert_eq!(
+            decide(&Config::default(), 1, Some(&m(Some(9.0)))).code,
+            VerdictCode::TooNarrow
+        );
     }
 
     #[test]
     fn warn_wide_between_lines() {
-        assert_eq!(decide(&Config::default(), 1, Some(&m(Some(10.6)))).code, VerdictCode::WarnWide);
+        assert_eq!(
+            decide(&Config::default(), 1, Some(&m(Some(10.6)))).code,
+            VerdictCode::WarnWide
+        );
+    }
+
+    fn q(mean: f64, contrast: f64, sharpness: f64, over: f64) -> QualityMetrics {
+        QualityMetrics {
+            mean,
+            p05: 10.0,
+            p95: 10.0 + contrast,
+            contrast,
+            overexposed_ratio: over,
+            sharpness,
+        }
+    }
+
+    #[test]
+    fn quality_dark_rejected() {
+        let cfg = Config::default();
+        let d = decide_quality(&cfg, &q(5.0, 100.0, 100.0, 0.0)).expect("dark");
+        assert_eq!(d.code, VerdictCode::NoQuality);
+        assert!(d.message.contains("过暗"));
+    }
+
+    #[test]
+    fn quality_overexposed_rejected() {
+        let cfg = Config::default();
+        let d = decide_quality(&cfg, &q(200.0, 100.0, 100.0, 0.6)).expect("over");
+        assert_eq!(d.code, VerdictCode::NoQuality);
+    }
+
+    #[test]
+    fn quality_blur_rejected() {
+        let cfg = Config::default();
+        let d = decide_quality(&cfg, &q(120.0, 100.0, 2.0, 0.0)).expect("blur");
+        assert!(d.message.contains("模糊"));
+    }
+
+    #[test]
+    fn quality_normal_passes() {
+        let cfg = Config::default();
+        assert!(decide_quality(&cfg, &q(120.0, 100.0, 500.0, 0.0)).is_none());
+    }
+
+    #[test]
+    fn quality_disabled_passes() {
+        let mut cfg = Config::default();
+        cfg.quality.enabled = false;
+        assert!(decide_quality(&cfg, &q(0.0, 0.0, 0.0, 1.0)).is_none());
     }
 
     #[test]

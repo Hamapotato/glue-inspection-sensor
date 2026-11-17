@@ -1,4 +1,4 @@
-﻿//! `glue-agent`：无界面检测服务（RK3588 / Linux 板端）。
+//! `glue-agent`：无界面检测服务（RK3588 / Linux 板端）。
 //!
 //! 与 GUI 共用 `glue-core/vision/pipeline`，但不依赖 egui，便于交叉编译到 aarch64。
 //! 用法：
@@ -42,8 +42,8 @@ fn main() -> Result<()> {
         }
     }
 
-    let mut cfg = Config::from_yaml(&cfg_path)
-        .with_context(|| format!("读取配置失败：{cfg_path}"))?;
+    let mut cfg =
+        Config::from_yaml(&cfg_path).with_context(|| format!("读取配置失败：{cfg_path}"))?;
     if let Some(mm) = mm_per_px {
         cfg.calib.enabled = true;
         cfg.calib.mm_per_px = Some(mm);
@@ -114,7 +114,10 @@ fn append_line(path: &Path, value: &serde_json::Value) -> Result<()> {
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent).ok();
     }
-    let mut f = std::fs::OpenOptions::new().create(true).append(true).open(path)?;
+    let mut f = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(path)?;
     writeln!(f, "{value}")?;
     Ok(())
 }
@@ -131,7 +134,10 @@ fn collect_images(input: &Path) -> Result<Vec<PathBuf>> {
         .map(|e| e.path())
         .filter(|p| {
             matches!(
-                p.extension().and_then(|s| s.to_str()).map(|s| s.to_ascii_lowercase()).as_deref(),
+                p.extension()
+                    .and_then(|s| s.to_str())
+                    .map(|s| s.to_ascii_lowercase())
+                    .as_deref(),
                 Some("png" | "jpg" | "jpeg" | "bmp")
             )
         })

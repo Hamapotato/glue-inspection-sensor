@@ -245,10 +245,13 @@ pub trait Judge {                  // 规则判定（可切换 rule / fused）
 preprocess: {segment: {method}, morph: {ksize, order}}
 measure:    {bfs_connectivity, min_area_px, width: {standard_mm, warn_delta_mm, alarm_delta_mm}}
 calib:      {enabled, mm_per_px, pattern, square_mm}
+quality:    {enabled, min_mean, max_mean, max_overexposed_ratio, min_contrast, min_sharpness}
 decide:     {broken_min_rois, reflection_override}
 locate:     {type, weights, input_size, nms: {type, thr}}
 reflect:    {type, weights, input_size, score_thr}
 ```
+
+**质量门控**（工程增强，论文未设此环节）：流水线在定位前计算灰度均值、p95−p05 对比度、饱和像素比例与 Laplacian 方差（清晰度），任一越界即返回 `NO_QUALITY`（"无法判定"），不进入定位与量测，避免把坏图误判为缺陷。阈值全部来自 `quality:` 配置段。
 
 ### 6.2 配方（Recipe，JSON）
 

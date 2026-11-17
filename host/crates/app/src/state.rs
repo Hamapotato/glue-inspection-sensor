@@ -1,4 +1,4 @@
-﻿//! 界面状态与业务动作（与 egui 解耦，便于单元测试与无头模式）。
+//! 界面状态与业务动作（与 egui 解耦，便于单元测试与无头模式）。
 
 use std::path::{Path, PathBuf};
 
@@ -51,7 +51,8 @@ impl AppState {
         let cfg = Config::from_yaml(&cfg_path).unwrap_or_default();
         let mm_per_px = cfg.mm_per_px();
         let db_path = env_or("GLUE_DB", "../outputs/host.db");
-        let store = Store::open(&db_path).unwrap_or_else(|_| Store::open_memory().expect("memory store"));
+        let store =
+            Store::open(&db_path).unwrap_or_else(|_| Store::open_memory().expect("memory store"));
         Self {
             cfg_path,
             cfg,
@@ -102,7 +103,10 @@ impl AppState {
                     .map(|e| e.path())
                     .filter(|p| {
                         matches!(
-                            p.extension().and_then(|s| s.to_str()).map(|s| s.to_ascii_lowercase()).as_deref(),
+                            p.extension()
+                                .and_then(|s| s.to_str())
+                                .map(|s| s.to_ascii_lowercase())
+                                .as_deref(),
                             Some("png" | "jpg" | "jpeg" | "bmp")
                         )
                     })
@@ -151,7 +155,11 @@ impl AppState {
         if let Err(e) = self.store.insert(&file, &verdict, width, total) {
             self.status = format!("入库失败：{e}");
         } else {
-            self.status = format!("{file}: {verdict}，{:.2} mm，{:.1} ms", width.unwrap_or(0.0), total);
+            self.status = format!(
+                "{file}: {verdict}，{:.2} mm，{:.1} ms",
+                width.unwrap_or(0.0),
+                total
+            );
         }
         self.result = Some(r);
         self.refresh_history();
@@ -162,10 +170,21 @@ impl AppState {
         let insp = self.inspector();
         let mut count = 0;
         for (i, path) in self.files.iter().enumerate() {
-            let Ok(img) = GrayImage::from_file(path) else { continue };
+            let Ok(img) = GrayImage::from_file(path) else {
+                continue;
+            };
             let r = insp.inspect(&img);
-            let file = path.file_name().and_then(|s| s.to_str()).unwrap_or("").to_string();
-            let _ = self.store.insert(&file, r.decision.code.as_str(), r.decision.width_mm, r.timings.total_ms);
+            let file = path
+                .file_name()
+                .and_then(|s| s.to_str())
+                .unwrap_or("")
+                .to_string();
+            let _ = self.store.insert(
+                &file,
+                r.decision.code.as_str(),
+                r.decision.width_mm,
+                r.timings.total_ms,
+            );
             count += 1;
             if i == self.current {
                 self.result = Some(r);
@@ -195,10 +214,12 @@ impl AppState {
         if let Some(p) = Path::new(&self.recipe_path).parent() {
             std::fs::create_dir_all(p).ok();
         }
-        match serde_json::to_string_pretty(&recipe).map_err(anyhow::Error::from).and_then(|s| {
-            std::fs::write(&self.recipe_path, s)?;
-            Ok(())
-        }) {
+        match serde_json::to_string_pretty(&recipe)
+            .map_err(anyhow::Error::from)
+            .and_then(|s| {
+                std::fs::write(&self.recipe_path, s)?;
+                Ok(())
+            }) {
             Ok(()) => self.status = format!("配方已保存 {}", self.recipe_path),
             Err(e) => self.status = format!("配方保存失败：{e}"),
         }
@@ -236,8 +257,14 @@ mod tests {
     #[test]
     fn recipe_roundtrip() {
         std::fs::create_dir_all("target").ok();
-        let path = std::path::Path::new("target").join(format!("glue_recipe_{}.json", std::process::id()));
-        let r = Recipe { standard_mm: 10.5, warn_delta_mm: 0.4, alarm_delta_mm: 0.9, mm_per_px: Some(0.08) };
+        let path =
+            std::path::Path::new("target").join(format!("glue_recipe_{}.json", std::process::id()));
+        let r = Recipe {
+            standard_mm: 10.5,
+            warn_delta_mm: 0.4,
+            alarm_delta_mm: 0.9,
+            mm_per_px: Some(0.08),
+        };
         std::fs::write(&path, serde_json::to_string(&r).unwrap()).unwrap();
         let back: Recipe = serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
         assert!((back.standard_mm - 10.5).abs() < 1e-9);

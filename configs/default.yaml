@@ -60,6 +60,14 @@ reflect:
   high_value: 245            # [假设] heuristic 占位实现的饱和阈值
   min_area_px: 30            # [假设] heuristic 占位实现的最小反光面积
 
+quality:
+  enabled: true               # 工程增强：图像质量不达标时判"无法判定"，不进入检测
+  min_mean: 20.0              # [假设] 灰度均值下限（过暗）
+  max_mean: 235.0             # [假设] 灰度均值上限（过亮）
+  max_overexposed_ratio: 0.30 # [假设] 饱和像素（>=240）占比上限
+  min_contrast: 25.0          # [假设] p95-p05 对比度下限
+  min_sharpness: 10.0         # [假设] Laplacian 方差下限（模糊）
+
 decide:
   broken_min_rois: 2         # 论文 5.3.3：RoI 数量 > 1 判为断胶
   reflection_override: true  # 命中反光时不直接判缺陷，改为提示调参

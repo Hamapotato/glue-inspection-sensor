@@ -1,4 +1,4 @@
-﻿//! egui 界面：检测 / 配方 / 历史 / 统计 / 设置。
+//! egui 界面：检测 / 配方 / 历史 / 统计 / 设置。
 //! 交互规范见 host/AGENTS.md 第 6 节。
 
 use eframe::egui;
@@ -33,7 +33,13 @@ impl HostApp {
         install_style(&cc.egui_ctx);
         let mut st = AppState::new();
         st.scan();
-        Self { st, page: Page::Inspect, texture: None, tex_key: String::new(), selected: None }
+        Self {
+            st,
+            page: Page::Inspect,
+            texture: None,
+            tex_key: String::new(),
+            selected: None,
+        }
     }
 
     fn handle_shortcuts(&mut self, ctx: &egui::Context) {
@@ -89,8 +95,17 @@ impl HostApp {
             .show(ctx, |ui| {
                 ui.visuals_mut().override_text_color = Some(Color32::from_rgb(226, 232, 240));
                 ui.add_space(6.0);
-                ui.label(egui::RichText::new("涂胶检测").size(22.0).strong().color(Color32::WHITE));
-                ui.label(egui::RichText::new("Glue Inspection HMI").size(11.0).color(Color32::from_rgb(148, 163, 184)));
+                ui.label(
+                    egui::RichText::new("涂胶检测")
+                        .size(22.0)
+                        .strong()
+                        .color(Color32::WHITE),
+                );
+                ui.label(
+                    egui::RichText::new("Glue Inspection HMI")
+                        .size(11.0)
+                        .color(Color32::from_rgb(148, 163, 184)),
+                );
                 ui.add_space(16.0);
                 for (p, label) in [
                     (Page::Inspect, "检测"),
@@ -102,7 +117,11 @@ impl HostApp {
                     let text = egui::RichText::new(label).size(16.0);
                     let selected = self.page == p;
                     let btn = egui::Button::new(text)
-                        .fill(if selected { NAV_ACTIVE } else { Color32::TRANSPARENT })
+                        .fill(if selected {
+                            NAV_ACTIVE
+                        } else {
+                            Color32::TRANSPARENT
+                        })
                         .min_size(egui::vec2(140.0, 34.0));
                     if ui.add(btn).clicked() {
                         self.page = p;
@@ -110,8 +129,14 @@ impl HostApp {
                 }
                 ui.add_space(10.0);
                 ui.separator();
-                ui.label(egui::RichText::new(format!("图像 {} 张", self.st.files.len())).size(12.0));
-                ui.label(egui::RichText::new("← → 切换 · 空格 检测").size(11.0).color(Color32::from_rgb(148, 163, 184)));
+                ui.label(
+                    egui::RichText::new(format!("图像 {} 张", self.st.files.len())).size(12.0),
+                );
+                ui.label(
+                    egui::RichText::new("← → 切换 · 空格 检测")
+                        .size(11.0)
+                        .color(Color32::from_rgb(148, 163, 184)),
+                );
             });
     }
 
@@ -124,7 +149,11 @@ impl HostApp {
             Page::Settings => "设置",
         };
         egui::TopBottomPanel::top("topbar")
-            .frame(egui::Frame::default().fill(Color32::WHITE).inner_margin(10.0))
+            .frame(
+                egui::Frame::default()
+                    .fill(Color32::WHITE)
+                    .inner_margin(10.0),
+            )
             .show(ctx, |ui| {
                 ui.horizontal(|ui| {
                     ui.label(egui::RichText::new(title).size(18.0).strong().color(TEXT));
@@ -134,12 +163,26 @@ impl HostApp {
                         .mm_per_px
                         .map(|v| format!("标定 {v:.4} mm/px"))
                         .unwrap_or_else(|| "未标定".into());
-                    chip(ui, &calib, if self.st.mm_per_px.is_some() { OK } else { WARN });
-                    chip(ui, &format!("标准 {:.1} mm", self.st.cfg.measure.width.standard_mm), TEXT);
+                    chip(
+                        ui,
+                        &calib,
+                        if self.st.mm_per_px.is_some() {
+                            OK
+                        } else {
+                            WARN
+                        },
+                    );
+                    chip(
+                        ui,
+                        &format!("标准 {:.1} mm", self.st.cfg.measure.width.standard_mm),
+                        TEXT,
+                    );
                     chip(ui, &format!("记录 {} 条", self.st.history.len()), TEXT);
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                         if ui.button("快捷键").clicked() {
-                            self.st.status = "← → 上/下一张 ｜ 空格 检测当前 ｜ Ctrl+B 批量检测 ｜ F5 刷新统计".into();
+                            self.st.status =
+                                "← → 上/下一张 ｜ 空格 检测当前 ｜ Ctrl+B 批量检测 ｜ F5 刷新统计"
+                                    .into();
                         }
                     });
                 });
@@ -148,12 +191,17 @@ impl HostApp {
 
     fn bottom(&mut self, ctx: &egui::Context) {
         egui::TopBottomPanel::bottom("status")
-            .frame(egui::Frame::default().fill(Color32::WHITE).inner_margin(8.0))
+            .frame(
+                egui::Frame::default()
+                    .fill(Color32::WHITE)
+                    .inner_margin(8.0),
+            )
             .show(ctx, |ui| {
                 ui.horizontal(|ui| {
                     let (dot, color) = match self.st.result.as_ref().map(|r| r.decision.code) {
                         Some(VerdictCode::Ok) => ("●", OK),
                         Some(c) if c.is_defect() => ("●", ALARM),
+                        Some(VerdictCode::NoQuality) => ("●", Color32::from_rgb(202, 138, 4)),
                         Some(VerdictCode::NoRoi) => ("●", NEUTRAL),
                         _ => ("○", MUTED),
                     };
@@ -164,40 +212,51 @@ impl HostApp {
     }
 
     fn inspect_page(&mut self, ui: &mut egui::Ui) {
-        egui::Frame::group(ui.style()).fill(Color32::WHITE).show(ui, |ui| {
-            ui.horizontal(|ui| {
-                ui.label(egui::RichText::new("图像目录").size(13.0).color(MUTED));
-                ui.add(egui::TextEdit::singleline(&mut self.st.dir).desired_width(320.0));
-                if ui.button("扫描").clicked() {
-                    self.st.scan();
-                }
-                ui.separator();
-                let has_prev = self.st.current > 0;
-                let has_next = self.st.current + 1 < self.st.files.len();
-                if ui.add_enabled(has_prev, egui::Button::new("◀ 上一张")).clicked() {
-                    self.st.current -= 1;
-                    self.st.load_current();
-                }
-                if ui.add_enabled(has_next, egui::Button::new("下一张 ▶")).clicked() {
-                    self.st.current += 1;
-                    self.st.load_current();
-                }
-                if ui.add_enabled(has_next, egui::Button::new("批量检测")).clicked() {
-                    self.st.detect_all();
-                }
-                ui.separator();
-                if ui
-                    .add_enabled(
-                        self.st.image.is_some(),
-                        egui::Button::new(egui::RichText::new("检测当前（空格）").strong())
-                            .fill(Color32::from_rgb(37, 99, 235)),
-                    )
-                    .clicked()
-                {
-                    self.st.detect_current();
-                }
+        egui::Frame::group(ui.style())
+            .fill(Color32::WHITE)
+            .show(ui, |ui| {
+                ui.horizontal(|ui| {
+                    ui.label(egui::RichText::new("图像目录").size(13.0).color(MUTED));
+                    ui.add(egui::TextEdit::singleline(&mut self.st.dir).desired_width(320.0));
+                    if ui.button("扫描").clicked() {
+                        self.st.scan();
+                    }
+                    ui.separator();
+                    let has_prev = self.st.current > 0;
+                    let has_next = self.st.current + 1 < self.st.files.len();
+                    if ui
+                        .add_enabled(has_prev, egui::Button::new("◀ 上一张"))
+                        .clicked()
+                    {
+                        self.st.current -= 1;
+                        self.st.load_current();
+                    }
+                    if ui
+                        .add_enabled(has_next, egui::Button::new("下一张 ▶"))
+                        .clicked()
+                    {
+                        self.st.current += 1;
+                        self.st.load_current();
+                    }
+                    if ui
+                        .add_enabled(has_next, egui::Button::new("批量检测"))
+                        .clicked()
+                    {
+                        self.st.detect_all();
+                    }
+                    ui.separator();
+                    if ui
+                        .add_enabled(
+                            self.st.image.is_some(),
+                            egui::Button::new(egui::RichText::new("检测当前（空格）").strong())
+                                .fill(Color32::from_rgb(37, 99, 235)),
+                        )
+                        .clicked()
+                    {
+                        self.st.detect_current();
+                    }
+                });
             });
-        });
         ui.add_space(8.0);
 
         ui.horizontal_top(|ui| {
@@ -209,17 +268,30 @@ impl HostApp {
 
     fn image_view(&mut self, ui: &mut egui::Ui) {
         let Some(img) = &self.st.image else {
-            egui::Frame::default().fill(Color32::from_rgb(229, 231, 235)).inner_margin(40.0).show(ui, |ui| {
-                ui.label(egui::RichText::new("请先在上方输入目录并点「扫描」").size(16.0).color(MUTED));
-                ui.label(egui::RichText::new("默认目录：../outputs/rust_samples").size(12.0).color(MUTED));
-            });
+            egui::Frame::default()
+                .fill(Color32::from_rgb(229, 231, 235))
+                .inner_margin(40.0)
+                .show(ui, |ui| {
+                    ui.label(
+                        egui::RichText::new("请先在上方输入目录并点「扫描」")
+                            .size(16.0)
+                            .color(MUTED),
+                    );
+                    ui.label(
+                        egui::RichText::new("默认目录：../outputs/rust_samples")
+                            .size(12.0)
+                            .color(MUTED),
+                    );
+                });
             return;
         };
         let (iw, ih) = (img.w as f32, img.h as f32);
         let avail_w = (ui.available_width() - 300.0).max(320.0);
         let scale = (avail_w / iw).min(620.0 / ih).max(0.05);
         let size = egui::vec2(iw * scale, ih * scale);
-        let Some(tex_id) = self.texture.as_ref().map(|t| t.id()) else { return };
+        let Some(tex_id) = self.texture.as_ref().map(|t| t.id()) else {
+            return;
+        };
         egui::Frame::default()
             .fill(Color32::from_rgb(17, 24, 39))
             .inner_margin(10.0)
@@ -238,84 +310,170 @@ impl HostApp {
             ui.set_width(280.0);
             if let Some(r) = &self.st.result {
                 let color = verdict_color(r.decision.code);
-                egui::Frame::group(ui.style()).fill(Color32::WHITE).show(ui, |ui| {
-                    ui.label(egui::RichText::new("检测结果").size(13.0).color(MUTED));
-                    ui.add_space(4.0);
-                    ui.label(
-                        egui::RichText::new(r.decision.code.as_str())
-                            .size(22.0)
-                            .strong()
-                            .color(Color32::WHITE)
-                            .background_color(color),
-                    );
-                    ui.add_space(6.0);
-                    ui.label(egui::RichText::new(&r.decision.message).size(14.0).color(TEXT));
-                    if let Some(m) = &r.measure {
+                egui::Frame::group(ui.style())
+                    .fill(Color32::WHITE)
+                    .show(ui, |ui| {
+                        ui.label(egui::RichText::new("检测结果").size(13.0).color(MUTED));
+                        ui.add_space(4.0);
+                        ui.label(
+                            egui::RichText::new(r.decision.code.as_str())
+                                .size(22.0)
+                                .strong()
+                                .color(Color32::WHITE)
+                                .background_color(color),
+                        );
                         ui.add_space(6.0);
-                        ui.label(egui::RichText::new(format!("宽度  {:.2} mm", m.width_mm.unwrap_or(0.0))).size(20.0).strong());
-                        ui.label(egui::RichText::new(format!("面积 {:.0} px ｜ 长度 {:.0} px", m.area_px, m.length_px)).size(12.0).color(MUTED));
-                    }
-                });
+                        ui.label(
+                            egui::RichText::new(&r.decision.message)
+                                .size(14.0)
+                                .color(TEXT),
+                        );
+                        if let Some(m) = &r.measure {
+                            ui.add_space(6.0);
+                            ui.label(
+                                egui::RichText::new(format!(
+                                    "宽度  {:.2} mm",
+                                    m.width_mm.unwrap_or(0.0)
+                                ))
+                                .size(20.0)
+                                .strong(),
+                            );
+                            ui.label(
+                                egui::RichText::new(format!(
+                                    "面积 {:.0} px ｜ 长度 {:.0} px",
+                                    m.area_px, m.length_px
+                                ))
+                                .size(12.0)
+                                .color(MUTED),
+                            );
+                        }
+                    });
                 ui.add_space(8.0);
-                egui::Frame::group(ui.style()).fill(Color32::WHITE).show(ui, |ui| {
-                    ui.label(egui::RichText::new("耗时").size(13.0).color(MUTED));
-                    ui.label(egui::RichText::new(format!("总计 {:.1} ms", r.timings.total_ms)).size(18.0).strong());
-                    ui.label(egui::RichText::new(format!("定位 {:.1} ms ｜ 量测 {:.1} ms", r.timings.locate_ms, r.timings.measure_ms)).size(12.0).color(MUTED));
-                });
+                egui::Frame::group(ui.style())
+                    .fill(Color32::WHITE)
+                    .show(ui, |ui| {
+                        ui.label(egui::RichText::new("耗时").size(13.0).color(MUTED));
+                        ui.label(
+                            egui::RichText::new(format!("总计 {:.1} ms", r.timings.total_ms))
+                                .size(18.0)
+                                .strong(),
+                        );
+                        ui.label(
+                            egui::RichText::new(format!(
+                                "定位 {:.1} ms ｜ 量测 {:.1} ms",
+                                r.timings.locate_ms, r.timings.measure_ms
+                            ))
+                            .size(12.0)
+                            .color(MUTED),
+                        );
+                    });
             } else {
-                egui::Frame::group(ui.style()).fill(Color32::WHITE).show(ui, |ui| {
-                    ui.label(egui::RichText::new("尚未检测").size(16.0).color(MUTED));
-                    ui.label(egui::RichText::new("点「检测当前」或按空格").size(12.0).color(MUTED));
-                });
+                egui::Frame::group(ui.style())
+                    .fill(Color32::WHITE)
+                    .show(ui, |ui| {
+                        ui.label(egui::RichText::new("尚未检测").size(16.0).color(MUTED));
+                        ui.label(
+                            egui::RichText::new("点「检测当前」或按空格")
+                                .size(12.0)
+                                .color(MUTED),
+                        );
+                    });
             }
             if !self.st.history.is_empty() {
                 ui.add_space(8.0);
-                egui::Frame::group(ui.style()).fill(Color32::WHITE).show(ui, |ui| {
-                    ui.label(egui::RichText::new("最近记录").size(13.0).color(MUTED));
-                    for r in self.st.history.iter().take(5) {
-                        ui.horizontal(|ui| {
-                            ui.label(egui::RichText::new(&r.file).size(12.0));
-                            ui.colored_label(verdict_color_by_name(&r.verdict), egui::RichText::new(&r.verdict).size(12.0));
-                            ui.label(egui::RichText::new(r.width_mm.map(|w| format!("{w:.2} mm")).unwrap_or_default()).size(12.0).color(MUTED));
-                        });
-                    }
-                });
+                egui::Frame::group(ui.style())
+                    .fill(Color32::WHITE)
+                    .show(ui, |ui| {
+                        ui.label(egui::RichText::new("最近记录").size(13.0).color(MUTED));
+                        for r in self.st.history.iter().take(5) {
+                            ui.horizontal(|ui| {
+                                ui.label(egui::RichText::new(&r.file).size(12.0));
+                                ui.colored_label(
+                                    verdict_color_by_name(&r.verdict),
+                                    egui::RichText::new(&r.verdict).size(12.0),
+                                );
+                                ui.label(
+                                    egui::RichText::new(
+                                        r.width_mm
+                                            .map(|w| format!("{w:.2} mm"))
+                                            .unwrap_or_default(),
+                                    )
+                                    .size(12.0)
+                                    .color(MUTED),
+                                );
+                            });
+                        }
+                    });
             }
         });
     }
 
     fn recipe_page(&mut self, ui: &mut egui::Ui) {
-        egui::Frame::group(ui.style()).fill(Color32::WHITE).show(ui, |ui| {
-            ui.label(egui::RichText::new("判定阈值").size(14.0).strong());
-            ui.add_space(6.0);
-            let w = &mut self.st.cfg.measure.width;
-            egui::Grid::new("recipe").num_columns(2).spacing([16.0, 10.0]).show(ui, |ui| {
-                ui.label("标准宽度 (mm)");
-                ui.add(egui::DragValue::new(&mut w.standard_mm).speed(0.05).range(0.0..=50.0));
-                ui.end_row();
-                ui.label("预警线 (mm)");
-                ui.add(egui::DragValue::new(&mut w.warn_delta_mm).speed(0.05).range(0.0..=10.0));
-                ui.end_row();
-                ui.label("报警线 (mm)");
-                ui.add(egui::DragValue::new(&mut w.alarm_delta_mm).speed(0.05).range(0.0..=10.0));
-                ui.end_row();
+        egui::Frame::group(ui.style())
+            .fill(Color32::WHITE)
+            .show(ui, |ui| {
+                ui.label(egui::RichText::new("判定阈值").size(14.0).strong());
+                ui.add_space(6.0);
+                let w = &mut self.st.cfg.measure.width;
+                egui::Grid::new("recipe")
+                    .num_columns(2)
+                    .spacing([16.0, 10.0])
+                    .show(ui, |ui| {
+                        ui.label("标准宽度 (mm)");
+                        ui.add(
+                            egui::DragValue::new(&mut w.standard_mm)
+                                .speed(0.05)
+                                .range(0.0..=50.0),
+                        );
+                        ui.end_row();
+                        ui.label("预警线 (mm)");
+                        ui.add(
+                            egui::DragValue::new(&mut w.warn_delta_mm)
+                                .speed(0.05)
+                                .range(0.0..=10.0),
+                        );
+                        ui.end_row();
+                        ui.label("报警线 (mm)");
+                        ui.add(
+                            egui::DragValue::new(&mut w.alarm_delta_mm)
+                                .speed(0.05)
+                                .range(0.0..=10.0),
+                        );
+                        ui.end_row();
+                    });
+                ui.add_space(4.0);
+                ui.label(
+                    egui::RichText::new("改动立即生效；保存后写入配方 JSON")
+                        .size(12.0)
+                        .color(MUTED),
+                );
             });
-            ui.add_space(4.0);
-            ui.label(egui::RichText::new("改动立即生效；保存后写入配方 JSON").size(12.0).color(MUTED));
-        });
         ui.add_space(8.0);
-        egui::Frame::group(ui.style()).fill(Color32::WHITE).show(ui, |ui| {
-            ui.label(egui::RichText::new("标定").size(14.0).strong());
-            ui.add_space(6.0);
-            let mut mm = self.st.mm_per_px.unwrap_or(0.0);
-            ui.horizontal(|ui| {
-                ui.label("mm / px");
-                if ui.add(egui::DragValue::new(&mut mm).speed(0.0001).range(0.0..=10.0)).changed() {
-                    self.st.mm_per_px = if mm > 0.0 { Some(mm) } else { None };
-                }
-                ui.label(egui::RichText::new("合成样本用 0.0833").size(12.0).color(MUTED));
+        egui::Frame::group(ui.style())
+            .fill(Color32::WHITE)
+            .show(ui, |ui| {
+                ui.label(egui::RichText::new("标定").size(14.0).strong());
+                ui.add_space(6.0);
+                let mut mm = self.st.mm_per_px.unwrap_or(0.0);
+                ui.horizontal(|ui| {
+                    ui.label("mm / px");
+                    if ui
+                        .add(
+                            egui::DragValue::new(&mut mm)
+                                .speed(0.0001)
+                                .range(0.0..=10.0),
+                        )
+                        .changed()
+                    {
+                        self.st.mm_per_px = if mm > 0.0 { Some(mm) } else { None };
+                    }
+                    ui.label(
+                        egui::RichText::new("合成样本用 0.0833")
+                            .size(12.0)
+                            .color(MUTED),
+                    );
+                });
             });
-        });
         ui.add_space(8.0);
         ui.horizontal(|ui| {
             if ui.button("保存配方").clicked() {
@@ -339,43 +497,72 @@ impl HostApp {
                 self.st.clear_history();
                 self.selected = None;
             }
-            ui.label(egui::RichText::new("点击行查看详情").size(12.0).color(MUTED));
+            ui.label(
+                egui::RichText::new("点击行查看详情")
+                    .size(12.0)
+                    .color(MUTED),
+            );
         });
         ui.add_space(6.0);
         let rows = self.st.history.clone();
         let mut clicked: Option<i64> = None;
-        egui::Frame::group(ui.style()).fill(Color32::WHITE).show(ui, |ui| {
-            egui::ScrollArea::vertical().max_height(480.0).auto_shrink([false, false]).show(ui, |ui| {
-                egui::Grid::new("history").striped(true).num_columns(5).spacing([18.0, 6.0]).show(ui, |ui| {
-                    for h in ["时间", "文件", "判定", "宽度 mm", "耗时 ms"] {
-                        ui.label(egui::RichText::new(h).strong().color(MUTED));
-                    }
-                    ui.end_row();
-                    for r in &rows {
-                        ui.label(egui::RichText::new(&r.ts).size(12.0));
-                        if ui.selectable_label(self.selected == Some(r.id), &r.file).clicked() {
-                            clicked = Some(r.id);
-                        }
-                        ui.colored_label(verdict_color_by_name(&r.verdict), egui::RichText::new(&r.verdict).strong());
-                        ui.label(r.width_mm.map(|w| format!("{w:.2}")).unwrap_or_default());
-                        ui.label(format!("{:.1}", r.total_ms));
-                        ui.end_row();
-                    }
-                });
+        egui::Frame::group(ui.style())
+            .fill(Color32::WHITE)
+            .show(ui, |ui| {
+                egui::ScrollArea::vertical()
+                    .max_height(480.0)
+                    .auto_shrink([false, false])
+                    .show(ui, |ui| {
+                        egui::Grid::new("history")
+                            .striped(true)
+                            .num_columns(5)
+                            .spacing([18.0, 6.0])
+                            .show(ui, |ui| {
+                                for h in ["时间", "文件", "判定", "宽度 mm", "耗时 ms"] {
+                                    ui.label(egui::RichText::new(h).strong().color(MUTED));
+                                }
+                                ui.end_row();
+                                for r in &rows {
+                                    ui.label(egui::RichText::new(&r.ts).size(12.0));
+                                    if ui
+                                        .selectable_label(self.selected == Some(r.id), &r.file)
+                                        .clicked()
+                                    {
+                                        clicked = Some(r.id);
+                                    }
+                                    ui.colored_label(
+                                        verdict_color_by_name(&r.verdict),
+                                        egui::RichText::new(&r.verdict).strong(),
+                                    );
+                                    ui.label(
+                                        r.width_mm.map(|w| format!("{w:.2}")).unwrap_or_default(),
+                                    );
+                                    ui.label(format!("{:.1}", r.total_ms));
+                                    ui.end_row();
+                                }
+                            });
+                    });
             });
-        });
         if clicked.is_some() {
             self.selected = clicked;
         }
         if let Some(id) = self.selected {
             if let Some(r) = self.st.history.iter().find(|r| r.id == id) {
                 ui.add_space(8.0);
-                egui::Frame::group(ui.style()).fill(Color32::WHITE).show(ui, |ui| {
-                    ui.label(egui::RichText::new("记录详情").size(14.0).strong());
-                    ui.label(format!("文件：{}", r.file));
-                    ui.label(format!("时间：{} ｜ 判定：{}", r.ts, r.verdict));
-                    ui.label(format!("宽度：{} mm ｜ 耗时：{:.1} ms", r.width_mm.map(|w| format!("{w:.2}")).unwrap_or_else(|| "-".into()), r.total_ms));
-                });
+                egui::Frame::group(ui.style())
+                    .fill(Color32::WHITE)
+                    .show(ui, |ui| {
+                        ui.label(egui::RichText::new("记录详情").size(14.0).strong());
+                        ui.label(format!("文件：{}", r.file));
+                        ui.label(format!("时间：{} ｜ 判定：{}", r.ts, r.verdict));
+                        ui.label(format!(
+                            "宽度：{} mm ｜ 耗时：{:.1} ms",
+                            r.width_mm
+                                .map(|w| format!("{w:.2}"))
+                                .unwrap_or_else(|| "-".into()),
+                            r.total_ms
+                        ));
+                    });
             }
         }
     }
@@ -399,56 +586,103 @@ impl HostApp {
         });
         ui.add_space(8.0);
         ui.horizontal_top(|ui| {
-            egui::Frame::group(ui.style()).fill(Color32::WHITE).show(ui, |ui| {
-                ui.set_min_width(360.0);
-                ui.label(egui::RichText::new("判定分布").size(14.0).strong());
-                ui.add_space(4.0);
-                let total = s.total.max(1) as f32;
-                for (k, n) in &s.by_verdict {
-                    let ratio = *n as f32 / total;
-                    ui.horizontal(|ui| {
-                        ui.add_sized([90.0, 18.0], egui::Label::new(egui::RichText::new(k).color(verdict_color_by_name(k)).strong()));
-                        let (rect, _) = ui.allocate_exact_size(egui::vec2(220.0, 14.0), egui::Sense::hover());
-                        ui.painter().rect_filled(rect, 3.0, Color32::from_rgb(229, 231, 235));
-                        let filled = egui::Rect::from_min_size(rect.min, egui::vec2((220.0 * ratio).max(2.0), rect.height()));
-                        ui.painter().rect_filled(filled, 3.0, verdict_color_by_name(k));
-                        ui.label(format!("{n}  ({:.0}%)", ratio * 100.0));
-                    });
-                }
-            });
+            egui::Frame::group(ui.style())
+                .fill(Color32::WHITE)
+                .show(ui, |ui| {
+                    ui.set_min_width(360.0);
+                    ui.label(egui::RichText::new("判定分布").size(14.0).strong());
+                    ui.add_space(4.0);
+                    let total = s.total.max(1) as f32;
+                    for (k, n) in &s.by_verdict {
+                        let ratio = *n as f32 / total;
+                        ui.horizontal(|ui| {
+                            ui.add_sized(
+                                [90.0, 18.0],
+                                egui::Label::new(
+                                    egui::RichText::new(k)
+                                        .color(verdict_color_by_name(k))
+                                        .strong(),
+                                ),
+                            );
+                            let (rect, _) = ui
+                                .allocate_exact_size(egui::vec2(220.0, 14.0), egui::Sense::hover());
+                            ui.painter()
+                                .rect_filled(rect, 3.0, Color32::from_rgb(229, 231, 235));
+                            let filled = egui::Rect::from_min_size(
+                                rect.min,
+                                egui::vec2((220.0 * ratio).max(2.0), rect.height()),
+                            );
+                            ui.painter()
+                                .rect_filled(filled, 3.0, verdict_color_by_name(k));
+                            ui.label(format!("{n}  ({:.0}%)", ratio * 100.0));
+                        });
+                    }
+                });
             ui.add_space(8.0);
-            egui::Frame::group(ui.style()).fill(Color32::WHITE).show(ui, |ui| {
-                ui.set_min_width(360.0);
-                ui.label(egui::RichText::new("宽度分布").size(14.0).strong());
-                let widths: Vec<f64> = self.st.history.iter().filter_map(|r| r.width_mm).filter(|w| *w > 0.0).collect();
-                draw_histogram(ui, &widths, 10);
-                if let (Some(mn), Some(mx), Some(mean)) = (s.width_min, s.width_max, s.width_mean) {
-                    ui.label(egui::RichText::new(format!("均值 {mean:.2} ｜ 最小 {mn:.2} ｜ 最大 {mx:.2} mm")).size(12.0).color(MUTED));
-                }
-            });
+            egui::Frame::group(ui.style())
+                .fill(Color32::WHITE)
+                .show(ui, |ui| {
+                    ui.set_min_width(360.0);
+                    ui.label(egui::RichText::new("宽度分布").size(14.0).strong());
+                    let widths: Vec<f64> = self
+                        .st
+                        .history
+                        .iter()
+                        .filter_map(|r| r.width_mm)
+                        .filter(|w| *w > 0.0)
+                        .collect();
+                    draw_histogram(ui, &widths, 10);
+                    if let (Some(mn), Some(mx), Some(mean)) =
+                        (s.width_min, s.width_max, s.width_mean)
+                    {
+                        ui.label(
+                            egui::RichText::new(format!(
+                                "均值 {mean:.2} ｜ 最小 {mn:.2} ｜ 最大 {mx:.2} mm"
+                            ))
+                            .size(12.0)
+                            .color(MUTED),
+                        );
+                    }
+                });
         });
     }
 
     fn settings_page(&mut self, ui: &mut egui::Ui) {
-        egui::Frame::group(ui.style()).fill(Color32::WHITE).show(ui, |ui| {
-            egui::Grid::new("settings").num_columns(2).spacing([16.0, 10.0]).show(ui, |ui| {
-                ui.label("配置文件");
-                ui.add(egui::TextEdit::singleline(&mut self.st.cfg_path).desired_width(420.0));
-                ui.end_row();
-                ui.label("数据库");
-                ui.add(egui::TextEdit::singleline(&mut self.st.db_path).desired_width(420.0));
-                ui.end_row();
-                ui.label("配方文件");
-                ui.add(egui::TextEdit::singleline(&mut self.st.recipe_path).desired_width(420.0));
-                ui.end_row();
+        egui::Frame::group(ui.style())
+            .fill(Color32::WHITE)
+            .show(ui, |ui| {
+                egui::Grid::new("settings")
+                    .num_columns(2)
+                    .spacing([16.0, 10.0])
+                    .show(ui, |ui| {
+                        ui.label("配置文件");
+                        ui.add(
+                            egui::TextEdit::singleline(&mut self.st.cfg_path).desired_width(420.0),
+                        );
+                        ui.end_row();
+                        ui.label("数据库");
+                        ui.add(
+                            egui::TextEdit::singleline(&mut self.st.db_path).desired_width(420.0),
+                        );
+                        ui.end_row();
+                        ui.label("配方文件");
+                        ui.add(
+                            egui::TextEdit::singleline(&mut self.st.recipe_path)
+                                .desired_width(420.0),
+                        );
+                        ui.end_row();
+                    });
             });
-        });
         ui.add_space(6.0);
         if ui.button("重新加载配置").clicked() {
             self.st.reload_config();
         }
         ui.add_space(6.0);
-        ui.label(egui::RichText::new("文件回放模式：不接相机、不接 PLC；数据库路径修改后重启生效。").size(12.0).color(MUTED));
+        ui.label(
+            egui::RichText::new("文件回放模式：不接相机、不接 PLC；数据库路径修改后重启生效。")
+                .size(12.0)
+                .color(MUTED),
+        );
     }
 }
 
@@ -481,16 +715,22 @@ fn chip(ui: &mut egui::Ui, text: &str, color: Color32) {
 }
 
 fn stat_tile(ui: &mut egui::Ui, title: &str, value: &str, color: Color32) {
-    egui::Frame::group(ui.style()).fill(Color32::WHITE).show(ui, |ui| {
-        ui.set_min_width(150.0);
-        ui.label(egui::RichText::new(title).size(12.0).color(MUTED));
-        ui.label(egui::RichText::new(value).size(26.0).strong().color(color));
-    });
+    egui::Frame::group(ui.style())
+        .fill(Color32::WHITE)
+        .show(ui, |ui| {
+            ui.set_min_width(150.0);
+            ui.label(egui::RichText::new(title).size(12.0).color(MUTED));
+            ui.label(egui::RichText::new(value).size(26.0).strong().color(color));
+        });
 }
 
 fn draw_histogram(ui: &mut egui::Ui, widths: &[f64], bins: usize) {
     if widths.len() < 2 {
-        ui.label(egui::RichText::new("样本不足（至少 2 条记录）").size(12.0).color(MUTED));
+        ui.label(
+            egui::RichText::new("样本不足（至少 2 条记录）")
+                .size(12.0)
+                .color(MUTED),
+        );
         return;
     }
     let mut lo = f64::INFINITY;
@@ -513,13 +753,18 @@ fn draw_histogram(ui: &mut egui::Ui, widths: &[f64], bins: usize) {
     ui.horizontal(|ui| {
         ui.spacing_mut().item_spacing.x = 4.0;
         for (i, c) in counts.iter().enumerate() {
-            let h = if max_c > 0.0 { 70.0 * (*c as f32) / max_c } else { 0.0 };
+            let h = if max_c > 0.0 {
+                70.0 * (*c as f32) / max_c
+            } else {
+                0.0
+            };
             let (rect, _) = ui.allocate_exact_size(egui::vec2(26.0, 80.0), egui::Sense::hover());
             let bar = egui::Rect::from_min_max(
                 egui::pos2(rect.left(), rect.bottom() - h.max(1.0)),
                 rect.right_bottom(),
             );
-            ui.painter().rect_filled(bar, 2.0, Color32::from_rgb(37, 99, 235));
+            ui.painter()
+                .rect_filled(bar, 2.0, Color32::from_rgb(37, 99, 235));
             let label = format!("{:.1}", lo + (i as f64 + 0.5) * (hi - lo) / bins as f64);
             if i % 2 == 0 {
                 ui.painter().text(
@@ -560,9 +805,15 @@ fn install_fonts(ctx: &egui::Context) {
     );
     for path in candidates {
         if let Ok(bytes) = std::fs::read(&path) {
-            fonts.font_data.insert("cjk".to_owned(), egui::FontData::from_owned(bytes).into());
+            fonts
+                .font_data
+                .insert("cjk".to_owned(), egui::FontData::from_owned(bytes).into());
             for family in [egui::FontFamily::Proportional, egui::FontFamily::Monospace] {
-                fonts.families.entry(family).or_default().insert(0, "cjk".to_owned());
+                fonts
+                    .families
+                    .entry(family)
+                    .or_default()
+                    .insert(0, "cjk".to_owned());
             }
             eprintln!("[ui] 字体：{path}");
             break;
@@ -589,6 +840,7 @@ fn install_style(ctx: &egui::Context) {
 fn verdict_color(code: VerdictCode) -> Color32 {
     match code {
         VerdictCode::Ok => OK,
+        VerdictCode::NoQuality => Color32::from_rgb(202, 138, 4),
         VerdictCode::NoRoi => NEUTRAL,
         VerdictCode::Broken => ALARM,
         VerdictCode::TooNarrow | VerdictCode::TooWide => WARN,
@@ -610,10 +862,21 @@ fn verdict_color_by_name(name: &str) -> Color32 {
 fn draw_overlay(painter: &egui::Painter, rect: egui::Rect, result: &FrameResult, scale: f32) {
     for b in &result.rois {
         let r = egui::Rect::from_min_max(
-            egui::pos2(rect.left() + b.x1 as f32 * scale, rect.top() + b.y1 as f32 * scale),
-            egui::pos2(rect.left() + b.x2 as f32 * scale, rect.top() + b.y2 as f32 * scale),
+            egui::pos2(
+                rect.left() + b.x1 as f32 * scale,
+                rect.top() + b.y1 as f32 * scale,
+            ),
+            egui::pos2(
+                rect.left() + b.x2 as f32 * scale,
+                rect.top() + b.y2 as f32 * scale,
+            ),
         );
-        painter.rect_stroke(r, 0.0, egui::Stroke::new(2.0, Color32::from_rgb(52, 211, 153)), egui::StrokeKind::Inside);
+        painter.rect_stroke(
+            r,
+            0.0,
+            egui::Stroke::new(2.0, Color32::from_rgb(52, 211, 153)),
+            egui::StrokeKind::Inside,
+        );
     }
     if let Some(m) = &result.measure {
         painter.text(
