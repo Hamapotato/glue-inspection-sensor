@@ -13,6 +13,24 @@ use std::time::Duration;
 use anyhow::{bail, Context, Result};
 use glue_core::Config;
 use glue_pipeline::Inspector;
+
+#[cfg(feature = "infer")]
+fn inspector(cfg: Config) -> Inspector {
+    let mut detectors = glue_pipeline::Detectors::default();
+    match glue_infer::detectors_from_config(&cfg) {
+        Ok((locate, reflect)) => {
+            detectors.locate = locate;
+            detectors.reflect = reflect;
+        }
+        Err(e) => eprintln!("[warn] 推理模块未启用：{e}"),
+    }
+    Inspector::with_detectors(cfg, detectors)
+}
+
+#[cfg(not(feature = "infer"))]
+fn inspector(cfg: Config) -> Inspector {
+    Inspector::new(cfg)
+}
 use glue_vision::GrayImage;
 
 fn main() -> Result<()> {
@@ -64,19 +82,6 @@ fn main() -> Result<()> {
             Ok(())
         }
     }
-}
-
-/// 按配置构建检测器（RPN 定位 / YOLO 反光）；推理配置有误时打印告警并回退启发式链路。
-fn inspector(cfg: Config) -> Inspector {
-    let mut detectors = glue_pipeline::Detectors::default();
-    match glue_infer::detectors_from_config(&cfg) {
-        Ok((locate, reflect)) => {
-            detectors.locate = locate;
-            detectors.reflect = reflect;
-        }
-        Err(e) => eprintln!("[warn] 推理模块未启用：{e}"),
-    }
-    Inspector::with_detectors(cfg, detectors)
 }
 
 fn run_once(
