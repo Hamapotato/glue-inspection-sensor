@@ -50,6 +50,7 @@ host/
    ├─ store/                # SQLite 记录与统计
    ├─ app/                  # egui 界面与状态
    ├─ agent/                # 无界面检测服务（RK3588 / Linux 板端）
+   ├─ infer/                # ONNX 推理（tract，纯 Rust）
    └─ cli/                  # 命令行（inspect/gen/bench）
 ```
 

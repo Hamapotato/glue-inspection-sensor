@@ -1,0 +1,16 @@
+﻿[package]
+name = "glue-infer"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "glue-infer"
+path = "src/main.rs"
+
+[dependencies]
+glue-core = { path = "../core" }
+anyhow = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tract-onnx = "0.21"

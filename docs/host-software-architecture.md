@@ -209,7 +209,7 @@
 | --- | --- | --- | --- | --- |
 | `glue-core` | 类型、配置、配方、判定规则 | `Config::load`、`decide()`、`FrameResult` | serde | 判定分支、配置解析 |
 | `glue-vision` | 图像算法（Otsu/形态学/连通域/骨架/宽度/标定映射） | `GrayImage`、`measure_roi()`、`locate()` | core | 合成图已知宽度 |
-| `glue-infer` | ONNX 推理（YOLO 反光、分割/RPN 拆分） | `Detector::detect()`、`Segmenter::segment()` | core, ort | 与 torch 结果对照 |
+| `glue-infer` | ONNX 推理（RPN 特征头 / YOLO 反光，tract 纯 Rust） | `run`（原始输出）、`rpn`/`yolo`（解码+NMS）；已与 onnxruntime 对拍 <1e-6 | core, tract-onnx | 与 Python 对拍（已过）；pipeline 集成待做 |
 | `glue-camera` | 相机抽象：MVS 实现 + 文件/视频回放 | `FrameSource` trait、`CameraConfig` | core | 回放源可测；FFI 单独测 |
 | `glue-pipeline` | 编排、并行、计时、降级 | `Inspector::inspect()`、`inspect_batch()` | vision, infer, core | 端到端合成图 |
 | `glue-store` | SQLite 记录/统计（已实现） | `Store::insert/recent/stats` | core | 内存库测试 |
@@ -519,7 +519,7 @@ Running →(相机断线)→ Degraded →(重连成功)→ Running
 | M1 内核 | core/vision/pipeline/cli + 单测 | `cargo test` 全绿；CLI 出 JSON |
 | M2 双实现对照 | Python/Rust 同图比对 | 宽度差 ≤ 1 px、判定一致 |
 | M2.5 训练迁移 | C++/libtorch 训练工程（RPN + YOLO）、与 Python 单 batch 数值对照 | 误差 ≤ 1e-5；同数据同超参可收敛 |
-| M3 推理 | `glue-infer`（YOLO 反光 → RPN 拆分） | 与 torch 结果对齐；单帧达标 |
+| M3 推理 | `glue-infer`（tract 加载 ONNX；RPN/YOLO 解码 + NMS 已实现） | 数值对拍已过（<1e-6）；与 pipeline 集成、板端性能待做 |
 | M4 相机 | `glue-camera`（MVS FFI、三路、触发） | 连续 8 h 无掉线 |
 | M5 界面 | `glue-app`（5 页面 + 叠加渲染 + SQLite 历史/统计） | ✅ 文件回放闭环可演示（相机版待接） |
 | M6 集成 | 存储/统计/报警、打包、ARM 交叉编译 | Windows 绿色包；RK3588 跑通 |
