@@ -83,6 +83,8 @@
 | [ ] E-02 | 总对照表 | `docs/algo/reports/summary.md` | 论文值/复现值/偏差原因 三列 |
 | [ ] E-03 | 版本与复现说明 | `docs/algo/reproduce.md` | 他人可照做 |
 | [ ] E-04 | 结论与后续建议 | 同上 | 明确哪些能复现、哪些不能 |
+| [x] E-05 | ONNX 导出与数值对拍（B1/B2） | `scripts/export_onnx.py`、`docs/algo/reports/p5-onnx.md` | 两模型可导出，onnxruntime 与 PyTorch 最大误差 ≤1e-4 |
+| [ ] E-06 | 端侧推理接入（Rust/ONNX 或 RKNN） | `glue-infer` | 与 Python 对拍 ≤1e-5 |
 
 ---
 

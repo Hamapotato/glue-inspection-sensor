@@ -3,7 +3,7 @@
 > 汇报日期：2026-11-17
 > 复现对象：《基于机器视觉的车身涂胶在线检测系统研究》（天津大学硕士学位论文，2022）
 > 代码位置：`feat/b1-b2-models` 分支（基于 main `dcefd40`；软件端在 `feat/host-app`、`feat/train-cpp`）
-> 任务完成度：27 / 37（未完成：A-06、B-05/06/11/12、D-05、E-01~04）
+> 任务完成度：28 / 39（未完成：A-06、B-05/06/11/12、D-05、E-01~04、E-06）
 
 ---
 
@@ -126,6 +126,8 @@ S  软件端        ███████░░░  70%   Windows HMI、C++ 训�
 | RK3588 无界面服务 | `feat/host-app` | 交叉编译通过 | `glue-agent` 1.5 MB aarch64-musl 静态单文件 + systemd 单元 + 部署文档 |
 | 相机（MVS）接入 | — | 未开始 | 当前仅文件回放 |
 | NPU 推理（ONNX→RKNN） | — | 未开始 | 模型仍为 torch，RPN 后处理需拆到 CPU |
+| ONNX 导出（B1/B2） | `feat/b1-b2-models` | 已验证 | RPN 3.87 MB、YOLO5FL 26.6 MB；onnxruntime 与 PyTorch 最大误差 2.6e-6，见 [p5-onnx.md](reports/p5-onnx.md) |
+| 端侧推理（Rust/RKNN） | — | 未开始 | 依赖 ONNX 与后处理实现（E-06） |
 | PLC / IO | — | 未开始 | MVP 使用模拟信号 |
 
 > 软件端耗时与吞吐为**本机 CPU 实测**，不是论文指标；Rust 链路已满足 30 fps 预算，Python 链路约 340 ms/帧，仅作参考实现。
