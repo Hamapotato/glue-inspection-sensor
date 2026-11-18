@@ -15,7 +15,7 @@ glue-pipeline = { path = "../pipeline" }
 glue-infer = { path = "../infer" }
 glue-store = { path = "../store" }
 anyhow = { workspace = true }
-eframe = { version = "0.31", default-features = false, features = ["glow", "default_fonts", "x11"] }
+eframe = { version = "0.31", default-features = false, features = ["glow", "default_fonts", "x11", "wayland"] }
 image = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
