@@ -173,9 +173,9 @@ pub fn merge_overlapping(boxes: Vec<RpnBox>, iom_thr: f32) -> Vec<RpnBox> {
         }
         x
     }
-    for i in 0..n {
-        for j in i + 1..n {
-            if iom(&boxes[i], &boxes[j]) > iom_thr {
+    for (i, a) in boxes.iter().enumerate() {
+        for (j, b) in boxes.iter().enumerate().skip(i + 1) {
+            if iom(a, b) > iom_thr {
                 let (ri, rj) = (find(&mut parent, i), find(&mut parent, j));
                 if ri != rj {
                     parent[rj] = ri;
@@ -184,19 +184,17 @@ pub fn merge_overlapping(boxes: Vec<RpnBox>, iom_thr: f32) -> Vec<RpnBox> {
         }
     }
     let mut groups: Vec<(f32, f32, f32, f32, f32, usize)> = Vec::new();
-    for i in 0..n {
+    for (i, b) in boxes.iter().enumerate() {
         let root = find(&mut parent, i);
         match groups.iter_mut().find(|g| g.5 == root) {
             Some(g) => {
-                g.0 = g.0.min(boxes[i].x1);
-                g.1 = g.1.min(boxes[i].y1);
-                g.2 = g.2.max(boxes[i].x2);
-                g.3 = g.3.max(boxes[i].y2);
-                g.4 = g.4.max(boxes[i].score);
+                g.0 = g.0.min(b.x1);
+                g.1 = g.1.min(b.y1);
+                g.2 = g.2.max(b.x2);
+                g.3 = g.3.max(b.y2);
+                g.4 = g.4.max(b.score);
             }
-            None => groups.push((
-                boxes[i].x1, boxes[i].y1, boxes[i].x2, boxes[i].y2, boxes[i].score, root,
-            )),
+            None => groups.push((b.x1, b.y1, b.x2, b.y2, b.score, root)),
         }
     }
     let mut out: Vec<RpnBox> = groups
