@@ -72,6 +72,19 @@ journalctl -u glue-agent -f
 
 服务定义见 `host/deploy/glue-agent.service`（按需修改路径与扫描间隔）。
 
+## 4.1 可选：板端启用推理
+
+`glue-agent` 默认不编译推理（`tract` 交叉编译需要 aarch64 C 工具链）。在板子上原生构建时可开启：
+
+```bash
+cd host
+cargo build --release -p glue-agent --features infer
+```
+
+- 需要 `gcc`（或 aarch64 交叉工具链）与约 2 GB 磁盘；
+- 需要把训练导出的 ONNX 放到板端，并在配置里设置 `locate.enabled/weights/anchors_wh`（参考 `configs/experiments/demo-rpn.yaml`）；
+- 当前演示权重是合成数据训练的，仅用于链路展示。
+
 ## 5. 构建 GUI 版（需要显示环境）
 
 `glue-app`（egui）依赖 X11/Wayland 与 OpenGL ES，建议**直接在板子上编译**。

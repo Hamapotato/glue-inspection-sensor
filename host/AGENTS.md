@@ -146,6 +146,9 @@ host/
 # 启动界面
 .\run-app.bat
 
+# 启动"推理演示"版界面（RPN 定位 + 演示权重）
+.\run-demo.bat
+
 # 无头检测（回归）
 .\run-headless.bat
 
