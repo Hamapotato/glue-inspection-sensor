@@ -62,6 +62,21 @@ host\target\release\glue-cli.exe inspect --config configs\experiments\demo-rpn.y
 
 ## 5. 如何运行演示
 
+一键生成权重（约 5–10 分钟，Windows；需在本分支执行）：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\build-demo-weights.ps1
+```
+
+启动演示 GUI（仓库根目录）：
+
+```powershell
+host\run-demo.bat      # Windows
+host/run-demo.sh        # Linux/板端（需先构建 glue-app）
+```
+
+等价的手动命令：
+
 ```powershell
 # CLI
 host\target\release\glue-cli.exe inspect --config configs\experiments\demo-rpn.yaml \
