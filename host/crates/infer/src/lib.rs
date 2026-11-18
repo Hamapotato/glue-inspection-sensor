@@ -132,6 +132,8 @@ pub struct RpnDetector {
     pub pre_topk: usize,
     pub post_topk: usize,
     pub min_size: f32,
+    /// K-means 先验框（w,h），None 用默认 9 个 anchor；必须与训练一致
+    pub anchors_wh: Option<Vec<(f32, f32)>>,
 }
 
 impl ObjectDetector for RpnDetector {
@@ -148,7 +150,10 @@ impl ObjectDetector for RpnDetector {
         if cls.len() != n || reg.len() != n * 4 {
             bail!("RPN 输出形状与 feat {f}x{f}×9 不匹配（cls={cls_shape:?}）");
         }
-        let anchors = rpn::anchors(f, f, 16, 9);
+        let anchors = match &self.anchors_wh {
+            Some(wh) => rpn::anchors_with_wh(f, f, 16, wh),
+            None => rpn::anchors(f, f, 16, 9),
+        };
         let boxes = rpn::proposals(
             &anchors,
             reg,
@@ -238,6 +243,11 @@ pub fn detectors_from_config(cfg: &Config) -> Result<Detectors> {
             pre_topk: cfg.locate.pre_topk,
             post_topk: cfg.locate.post_topk,
             min_size: cfg.locate.min_size as f32,
+            anchors_wh: cfg
+                .locate
+                .anchors_wh
+                .as_ref()
+                .map(|v| v.iter().map(|p| (p[0] as f32, p[1] as f32)).collect()),
         }));
     }
     let mut reflect: Option<Box<dyn ObjectDetector>> = None;

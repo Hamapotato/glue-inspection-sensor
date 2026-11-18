@@ -20,6 +20,21 @@ pub struct RpnBox {
 const SCALES: [f32; 3] = [32.0, 64.0, 128.0];
 const RATIOS: [f32; 3] = [0.5, 1.0, 2.0];
 
+/// 按给定宽高列表铺 anchor（K-means 结果，顺序必须与训练一致）。
+pub fn anchors_with_wh(h: usize, w: usize, stride: usize, wh: &[(f32, f32)]) -> Vec<Anchor> {
+    let mut out = Vec::with_capacity(h * w * wh.len());
+    for y in 0..h {
+        for x in 0..w {
+            let cx = (x as f32 + 0.5) * stride as f32;
+            let cy = (y as f32 + 0.5) * stride as f32;
+            for (aw, ah) in wh {
+                out.push(Anchor { cx, cy, w: *aw, h: *ah });
+            }
+        }
+    }
+    out
+}
+
 /// 按特征图尺寸铺 anchor（`stride` 为下采样倍数，默认 9 个 anchor）。
 pub fn anchors(h: usize, w: usize, stride: usize, num: usize) -> Vec<Anchor> {
     let mut out = Vec::with_capacity(h * w * num);
@@ -122,7 +137,74 @@ pub fn proposals(
             break;
         }
     }
-    keep
+    merge_overlapping(keep, 0.3)
+}
+
+
+fn area(b: &RpnBox) -> f32 {
+    (b.x2 - b.x1).max(0.0) * (b.y2 - b.y1).max(0.0)
+}
+
+fn iom(a: &RpnBox, b: &RpnBox) -> f32 {
+    let iw = (a.x2.min(b.x2) - a.x1.max(b.x1)).max(0.0);
+    let ih = (a.y2.min(b.y2) - a.y1.max(b.y1)).max(0.0);
+    let inter = iw * ih;
+    let denom = area(a).min(area(b));
+    if denom <= 0.0 {
+        0.0
+    } else {
+        inter / denom
+    }
+}
+
+/// 把互相重叠（IoM > thr）的候选框合并为包围框（保留最高分）。
+/// 用途：RPN 对同一条长胶条常给出多个相邻候选，合并后"一条胶条 = 一个 RoI"；
+/// 断胶的两段在 x 方向不相交，不会被合并，从而保留"多 RoI → 断胶"的判定语义。
+pub fn merge_overlapping(boxes: Vec<RpnBox>, iom_thr: f32) -> Vec<RpnBox> {
+    if boxes.len() <= 1 {
+        return boxes;
+    }
+    let n = boxes.len();
+    let mut parent: Vec<usize> = (0..n).collect();
+    fn find(parent: &mut Vec<usize>, mut x: usize) -> usize {
+        while parent[x] != x {
+            parent[x] = parent[parent[x]];
+            x = parent[x];
+        }
+        x
+    }
+    for i in 0..n {
+        for j in i + 1..n {
+            if iom(&boxes[i], &boxes[j]) > iom_thr {
+                let (ri, rj) = (find(&mut parent, i), find(&mut parent, j));
+                if ri != rj {
+                    parent[rj] = ri;
+                }
+            }
+        }
+    }
+    let mut groups: Vec<(f32, f32, f32, f32, f32, usize)> = Vec::new();
+    for i in 0..n {
+        let root = find(&mut parent, i);
+        match groups.iter_mut().find(|g| g.5 == root) {
+            Some(g) => {
+                g.0 = g.0.min(boxes[i].x1);
+                g.1 = g.1.min(boxes[i].y1);
+                g.2 = g.2.max(boxes[i].x2);
+                g.3 = g.3.max(boxes[i].y2);
+                g.4 = g.4.max(boxes[i].score);
+            }
+            None => groups.push((
+                boxes[i].x1, boxes[i].y1, boxes[i].x2, boxes[i].y2, boxes[i].score, root,
+            )),
+        }
+    }
+    let mut out: Vec<RpnBox> = groups
+        .into_iter()
+        .map(|(x1, y1, x2, y2, score, _)| RpnBox { x1, y1, x2, y2, score })
+        .collect();
+    out.sort_by(|a, b| b.score.total_cmp(&a.score));
+    out
 }
 
 #[cfg(test)]
@@ -154,6 +236,18 @@ mod tests {
         let (x1, y1, x2, y2) = decode(&a, [0.0, 0.0, 0.0, 0.0]);
         assert!((x1 - 80.0).abs() < 1e-5 && (y1 - 40.0).abs() < 1e-5);
         assert!((x2 - 120.0).abs() < 1e-5 && (y2 - 60.0).abs() < 1e-5);
+    }
+
+    #[test]
+    fn merge_overlapping_merges_same_strip() {
+        let boxes = vec![
+            RpnBox { x1: 10.0, y1: 100.0, x2: 300.0, y2: 140.0, score: 0.9 },
+            RpnBox { x1: 60.0, y1: 100.0, x2: 340.0, y2: 140.0, score: 0.8 },
+            RpnBox { x1: 400.0, y1: 100.0, x2: 700.0, y2: 140.0, score: 0.7 },
+        ];
+        let merged = merge_overlapping(boxes, 0.5);
+        assert_eq!(merged.len(), 2, "{merged:?}");
+        assert!((merged[0].x1 - 10.0).abs() < 1e-3 && (merged[0].x2 - 340.0).abs() < 1e-3);
     }
 
     #[test]

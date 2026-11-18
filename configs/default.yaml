@@ -45,6 +45,7 @@ locate:
   nms:
     type: ciou_nms           # nms | ciou_nms（论文 3.1.4）
     thr: 0.5                 # 论文表 3-2 中选定阈值
+  anchors_wh: null           # K-means 先验框（训练时生成；推理必须与训练一致）
   anchors:
     k: 9                     # [假设] 论文用 K-means 生成，数量沿用 RPN 的 9
     iters: 100

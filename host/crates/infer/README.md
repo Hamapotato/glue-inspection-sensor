@@ -48,6 +48,7 @@ locate:
   weights: outputs/onnx/rpn.onnx   # 训练后的权重
   input_size: 320
   score_thr: 0.5
+  anchors_wh: [[142.5,30.0], ...]   # K-means 先验框，必须与训练一致（可选）
 reflect:
   enabled: true
   type: yolo5fl

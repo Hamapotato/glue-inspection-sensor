@@ -1,0 +1,20 @@
+# 推理演示配置（RPN 定位 + 训练好的演示权重）
+# 使用前先按 scripts/make_demo_dataset.py + scripts/train_demo_weights.py 生成权重，
+# 再执行 scripts/export_onnx.py --rpn-weights outputs/demo/rpn/best.pt --out outputs/demo/onnx
+# 说明：合成数据训练的演示权重，仅用于展示推理链路，不代表真实精度。
+locate:
+  enabled: true
+  type: rpn
+  weights: outputs/demo/onnx/rpn.onnx
+  input_size: 320
+  score_thr: 0.95
+  pre_topk: 1000
+  post_topk: 300
+  min_size: 8.0
+  anchors_wh: [[142.5, 30.0], [142.5, 30.0], [142.5, 30.0], [300.0, 15.0], [300.0, 30.0], [300.0, 30.0], [300.0, 45.0], [300.0, 45.0], [300.0, 45.0]]
+reflect:
+  enabled: false
+  type: null_reflector
+  weights: null
+  input_size: 416
+  score_thr: 0.5

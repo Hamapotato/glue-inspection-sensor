@@ -247,7 +247,7 @@ measure:    {bfs_connectivity, min_area_px, width: {standard_mm, warn_delta_mm, 
 calib:      {enabled, mm_per_px, pattern, square_mm}
 quality:    {enabled, min_mean, max_mean, max_overexposed_ratio, min_contrast, min_sharpness}
 decide:     {broken_min_rois, reflection_override}
-locate:     {enabled, type, weights, input_size, score_thr, pre_topk, post_topk, min_size}
+locate:     {enabled, type, weights, input_size, score_thr, pre_topk, post_topk, min_size, anchors_wh}
 reflect:    {enabled, type, weights, input_size, score_thr}
 ```
 

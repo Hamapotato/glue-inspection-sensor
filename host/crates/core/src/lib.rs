@@ -109,6 +109,8 @@ pub struct LocateCfg {
     pub pre_topk: usize,
     pub post_topk: usize,
     pub min_size: f64,
+    /// K-means 先验框（w,h）；训练与推理必须一致，None 表示用默认 9 个 anchor。
+    pub anchors_wh: Option<Vec<[f64; 2]>>,
 }
 
 impl Default for LocateCfg {
@@ -122,6 +124,7 @@ impl Default for LocateCfg {
             pre_topk: 1000,
             post_topk: 300,
             min_size: 8.0,
+            anchors_wh: None,
         }
     }
 }
