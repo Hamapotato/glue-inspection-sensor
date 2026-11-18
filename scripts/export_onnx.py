@@ -97,12 +97,15 @@ def verify(job: dict, batch: int = 2) -> float:
     import onnxruntime as ort
 
     dummy = job["dummy"]
-    x = dummy.repeat(batch, 1, 1, 1)
+    sess = ort.InferenceSession(str(job["path"]), providers=["CPUExecutionProvider"])
+    # 静态 batch 的模型（YOLO）只能用 batch=1；动态 batch（RPN）用 2 顺带验证动态维
+    dim0 = sess.get_inputs()[0].shape[0]
+    run_batch = batch if isinstance(dim0, str) else 1
+    x = dummy.repeat(run_batch, 1, 1, 1)
     with torch.no_grad():
         torch_outs = job["wrapper"](x)
     if isinstance(torch_outs, torch.Tensor):
         torch_outs = (torch_outs,)
-    sess = ort.InferenceSession(str(job["path"]), providers=["CPUExecutionProvider"])
     names = [o.name for o in sess.get_outputs()]
     ort_outs = sess.run(names, {sess.get_inputs()[0].name: x.numpy()})
     diffs = []
