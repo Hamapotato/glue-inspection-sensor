@@ -74,7 +74,9 @@ journalctl -u glue-agent -f
 
 ## 5. 构建 GUI 版（需要显示环境）
 
-`glue-app`（egui）依赖 X11/Wayland 与 OpenGL ES，建议**直接在板子上编译**：
+`glue-app`（egui）依赖 X11/Wayland 与 OpenGL ES，建议**直接在板子上编译**。
+`eframe` 已启用 `glow` + `x11` feature（`host/crates/app/Cargo.toml`），X11 桌面可直接运行；
+若板子只跑 Wayland，需要再加 `wayland` feature 后重编。
 
 ```bash
 # 1) 装 Rust（一次）
