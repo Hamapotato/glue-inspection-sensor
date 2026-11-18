@@ -1,4 +1,4 @@
-﻿[package]
+[package]
 name = "glue-core"
 version.workspace = true
 edition.workspace = true

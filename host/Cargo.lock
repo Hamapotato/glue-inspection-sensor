@@ -1106,6 +1106,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "glue-core",
+ "libloading",
  "serde",
  "serde_json",
  "tract-onnx",

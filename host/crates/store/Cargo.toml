@@ -1,4 +1,4 @@
-﻿[package]
+[package]
 name = "glue-store"
 version.workspace = true
 edition.workspace = true

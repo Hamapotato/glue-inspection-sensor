@@ -62,7 +62,33 @@ reflect:
 - 仅开 YOLO：正常/过窄/过宽 → `REFLECTION_SUSPECT`，断胶仍 `BROKEN`，无胶仍 `NO_ROI`，坏图仍 `NO_QUALITY`；
 - 训练后的权重接入后，才可做"判定级"对拍（E-08）。
 
-## 5. 已知限制
+## 5. RKNN（可选 feature `rknn`，RK3588 NPU）
+
+`glue-infer` 支持用 RKNN 运行库执行同一套 RPN 推理（预处理、anchors、解码、NMS 与 ONNX 路径共用）：
+
+```bash
+# 板端原生构建（需 librknnrt.so 与 aarch64 工具链）
+cargo build --release -p glue-agent --features rknn
+
+# 指定运行库路径（可选）
+export GLUE_RKNN_LIB=/usr/lib/librknnrt.so
+```
+
+配置：`locate.type = rknn`，`weights` 指向 `.rknn`，`anchors_wh` 必须与训练一致（参考 `configs/experiments/demo-rknn.yaml`）。
+
+转换与验证（x86_64 Linux 转换、板端验证）：
+
+```bash
+# x86_64 Ubuntu，pip install rknn-toolkit2
+python3 scripts/export_rknn.py --onnx outputs/demo/onnx/rpn.onnx --out outputs/demo/rknn/rpn.rknn
+
+# 板端，pip install rknn-toolkit-lite2 onnxruntime
+python3 scripts/verify_rknn.py --rknn outputs/demo/rknn/rpn.rknn --onnx outputs/demo/onnx/rpn.onnx
+```
+
+失败行为：运行库缺失、模型形状不符时 `detect()` 返回错误，pipeline 回退启发式并把原因写入 `FrameResult.notes`（不静默降级）。
+
+## 6. 已知限制
 
 1. **未接入 pipeline**：当前 `glue-vision::locate` 仍是启发式；RPN 的 ONNX 特征图尚未替换它（下一步：`Detector` trait + 配置开关）；
 2. **YOLO 静态 batch**：端侧按单帧推理，暂不支持动态 batch；

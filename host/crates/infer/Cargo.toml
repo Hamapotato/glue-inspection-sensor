@@ -1,4 +1,4 @@
-﻿[package]
+[package]
 name = "glue-infer"
 version.workspace = true
 edition.workspace = true
@@ -18,3 +18,8 @@ anyhow = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 tract-onnx = "0.21"
+libloading = { version = "0.8", optional = true }
+
+[features]
+default = []
+rknn = ["dep:libloading"]

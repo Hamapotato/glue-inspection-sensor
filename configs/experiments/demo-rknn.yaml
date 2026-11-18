@@ -1,0 +1,16 @@
+# 推理演示配置（RKNN NPU，RK3588）
+# 需要：x86_64 Linux 上用 scripts/export_rknn.py 生成 .rknn，并拷到板端；
+# 运行端需以 --features rknn 构建（如 cargo build --release -p glue-agent --features rknn）。
+# 说明：合成数据训练的演示权重，仅用于展示 NPU 推理链路，不代表真实精度。
+locate:
+  enabled: true
+  type: rknn
+  weights: outputs/demo/rknn/rpn.rknn
+  input_size: 320
+  score_thr: 0.95
+  pre_topk: 1000
+  post_topk: 300
+  min_size: 8.0
+  anchors_wh: [[142.5, 30.0], [142.5, 30.0], [142.5, 30.0], [300.0, 15.0], [300.0, 30.0], [300.0, 30.0], [300.0, 45.0], [300.0, 45.0], [300.0, 45.0]]
+reflect:
+  enabled: false

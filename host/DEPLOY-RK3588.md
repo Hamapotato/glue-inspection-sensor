@@ -85,6 +85,30 @@ cargo build --release -p glue-agent --features infer
 - 需要把训练导出的 ONNX 放到板端，并在配置里设置 `locate.enabled/weights/anchors_wh`（参考 `configs/experiments/demo-rpn.yaml`）；
 - 当前演示权重是合成数据训练的，仅用于链路展示。
 
+## 4.2 RK3588 NPU（RKNN，可选）
+
+1. **转换（x86_64 Linux，不是板端）**：
+   ```bash
+   pip install rknn-toolkit2   # 版本需与板端 librknnrt.so 匹配
+   python3 scripts/export_rknn.py --onnx outputs/demo/onnx/rpn.onnx --out outputs/demo/rknn/rpn.rknn
+   ```
+   校准图由脚本自动从 `outputs/demo_dataset/train` 生成（320×320 letterbox，uint8）。
+2. **拷到板端**：`.rknn` + `configs/experiments/demo-rknn.yaml`（含 `anchors_wh`）。
+3. **板端构建带 NPU 的二进制**：
+   ```bash
+   cd host
+   cargo build --release -p glue-agent --features rknn
+   ```
+4. **运行**：
+   ```bash
+   ./target/release/glue-agent --config ../configs/experiments/demo-rknn.yaml \
+       --input ../outputs/rust_samples --mm-per-px 0.0833 --out /tmp/rknn.json
+   ```
+   若运行库不在默认搜索路径：`export GLUE_RKNN_LIB=/usr/lib/librknnrt.so`。
+5. **验证**：`python3 scripts/verify_rknn.py --rknn outputs/demo/rknn/rpn.rknn --onnx outputs/demo/onnx/rpn.onnx`（板端，RKNN 与 ONNX 输出误差 < 0.05 视为通过）。
+
+> 注意：当前仓库未包含 `.rknn` 产物，也未在真实板端实测性能；转换与验证需在 x86 Linux + 板端分别执行。
+
 ## 5. 构建 GUI 版（需要显示环境）
 
 `glue-app`（egui）依赖 X11/Wayland 与 OpenGL ES，建议**直接在板子上编译**。

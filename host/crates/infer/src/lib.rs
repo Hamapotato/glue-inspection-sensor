@@ -17,6 +17,8 @@ use tract_onnx::prelude::*;
 
 pub mod rpn;
 pub mod yolo;
+#[cfg(feature = "rknn")]
+pub mod rknn;
 
 /// 运行器：输入 f32（行优先、1×1×h×w），返回各输出张量（形状, 数据）。
 pub type Runner =
@@ -230,11 +232,32 @@ pub fn detectors_from_config(cfg: &Config) -> Result<Detectors> {
             .weights
             .as_ref()
             .context("locate.enabled=true 但未配置 weights")?;
+        if cfg.locate.kind == "rknn" {
+            #[cfg(feature = "rknn")]
+            {
+                if !Path::new(path).exists() {
+                    bail!("RKNN 模型不存在：{path}（先运行 scripts/export_rknn.py 转换）");
+                }
+                locate = Some(Box::new(rknn::RknnDetector::open(
+                    PathBuf::from(path),
+                    cfg.locate.input_size,
+                    cfg.locate.score_thr as f32,
+                    cfg.locate.pre_topk,
+                    cfg.locate.post_topk,
+                    cfg.locate.min_size as f32,
+                    cfg.locate
+                        .anchors_wh
+                        .as_ref()
+                        .map(|v| v.iter().map(|p| (p[0] as f32, p[1] as f32)).collect()),
+                )?));
+            }
+            #[cfg(not(feature = "rknn"))]
+            bail!("locate.type=rknn 需要以 --features rknn 构建（NPU 运行库仅在板端可用）");
+        } else if cfg.locate.kind != "rpn" {
+            bail!("locate.type={} 暂只支持 rpn/rknn", cfg.locate.kind);
+        } else {
         if !Path::new(path).exists() {
             bail!("RPN 权重不存在：{path}");
-        }
-        if cfg.locate.kind != "rpn" {
-            bail!("locate.type={} 暂只支持 rpn", cfg.locate.kind);
         }
         locate = Some(Box::new(RpnDetector {
             model: PathBuf::from(path),
@@ -249,6 +272,7 @@ pub fn detectors_from_config(cfg: &Config) -> Result<Detectors> {
                 .as_ref()
                 .map(|v| v.iter().map(|p| (p[0] as f32, p[1] as f32)).collect()),
         }));
+        }
     }
     let mut reflect: Option<Box<dyn ObjectDetector>> = None;
     if cfg.reflect.enabled {
