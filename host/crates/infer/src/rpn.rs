@@ -166,7 +166,7 @@ pub fn merge_overlapping(boxes: Vec<RpnBox>, iom_thr: f32) -> Vec<RpnBox> {
     }
     let n = boxes.len();
     let mut parent: Vec<usize> = (0..n).collect();
-    fn find(parent: &mut Vec<usize>, mut x: usize) -> usize {
+    fn find(parent: &mut [usize], mut x: usize) -> usize {
         while parent[x] != x {
             parent[x] = parent[parent[x]];
             x = parent[x];
