@@ -31,6 +31,7 @@ Copy-Item (Join-Path $root "configs\experiments\camera-mvs.yaml"), (Join-Path $r
 Copy-Item (Join-Path $root "scripts\camera_mvs.py"), (Join-Path $root "scripts\camera_synthetic.py") "$out\scripts\"
 Copy-Item (Join-Path $hostDir "deploy\*.sh"), (Join-Path $hostDir "deploy\glue-agent.service"), (Join-Path $hostDir "deploy\README.txt") "$out\deploy\"
 Copy-Item (Join-Path $hostDir "deploy\README.txt") "$out\README.txt"
+Copy-Item (Join-Path $hostDir "deploy\CAMERA-MVS.md") "$out\deploy\CAMERA-MVS.md" 2>$null
 
 # Samples: one per kind (normal/narrow/wide/broken/no_roi/dark/overexposed/blurry)
 $src = Join-Path $root "outputs\rust_samples"
