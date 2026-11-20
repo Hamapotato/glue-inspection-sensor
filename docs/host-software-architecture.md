@@ -13,7 +13,7 @@
 | ADR-1 | 上位机用 **Rust** | 无 GC、单二进制、可交叉编译 aarch64、延迟可预测；算法密集场景收益大 | C# / .NET（参考软件）、Python + Qt |
 | ADR-2 | 界面用 **egui**（后续可换 Tauri） | 纯 Rust、单进程、即时模式适合数据密集 HMI；无需 WebView 运行时 | Tauri、Slint、Iced |
 | ADR-3 | **训练用 C++（libtorch），部署用 Rust** | 训练侧统一到 C++ 工程，避免 Python 运行时依赖；libtorch 提供 autograd/优化器/序列化，无需自研框架 | 全 Python 训练、全 Rust 自研 autograd |
-| ADR-4 | 相机走 **MVS C API FFI** | 沿用现有海康 USB3 相机，不换硬件 | GenICam / Aravis、UVC |
+| ADR-4 | 相机走 **MVS（首版命令管道调用 SDK 脚本；后续可换 C API FFI）** | 沿用现有海康 USB3 相机，不换硬件；先打通链路 | GenICam / Aravis、UVC |
 | ADR-5 | 对外通信：**千兆以太网 JSON + 现场总线网关** | 与 roadmap 一致，PLC 协议不自己实现 | 直连 Profinet/DeviceNet |
 
 > **决策状态（2026-11-15 确认）**：ADR-1 Rust ✅、ADR-2 egui ✅、首版范围见 §2.3、不接真实 PLC/机器人 IO（用模拟信号）✅。
@@ -210,7 +210,7 @@
 | `glue-core` | 类型、配置、配方、判定规则 | `Config::load`、`decide()`、`FrameResult` | serde | 判定分支、配置解析 |
 | `glue-vision` | 图像算法（Otsu/形态学/连通域/骨架/宽度/标定映射） | `GrayImage`、`measure_roi()`、`locate()` | core | 合成图已知宽度 |
 | `glue-infer` | ONNX 推理（RPN 特征头 / YOLO 反光，tract 纯 Rust） | `run`（原始输出）、`rpn`/`yolo`（解码+NMS）；已与 onnxruntime 对拍 <1e-6 | core, tract-onnx | 与 Python 对拍（已过）；pipeline 集成待做 |
-| `glue-camera` | 相机抽象：MVS 实现 + 文件/视频回放 | `FrameSource` trait、`CameraConfig` | core | 回放源可测；FFI 单独测 |
+| `glue-camera` | 相机抽象：command 后端（GLUE 帧协议，MVS 由脚本接入） | `FrameSource` trait、`CameraCfg` | core | 帧协议单测；单路 MVS 待板端验证 |
 | `glue-pipeline` | 编排、并行、计时、降级 | `Inspector::inspect()`、`inspect_batch()` | vision, infer, core | 端到端合成图 |
 | `glue-store` | SQLite 记录/统计（已实现） | `Store::insert/recent/stats` | core | 内存库测试 |
 | `glue-app` | egui 界面（已实现：检测/配方/历史/统计/设置） | 无 | pipeline, store | 状态单测 + 无头模式 |
@@ -522,7 +522,7 @@ Running →(相机断线)→ Degraded →(重连成功)→ Running
 | M2 双实现对照 | Python/Rust 同图比对 | 宽度差 ≤ 1 px、判定一致 |
 | M2.5 训练迁移 | C++/libtorch 训练工程（RPN + YOLO）、与 Python 单 batch 数值对照 | 误差 ≤ 1e-5；同数据同超参可收敛 |
 | M3 推理 | `glue-infer`（tract）已接入 pipeline（`locate.enabled` / `reflect.enabled` 开关） | 数值对拍 <1e-6；随机权重冒烟验证链路；训练权重后的端到端判定对拍与板端性能待做 |
-| M4 相机 | `glue-camera`（MVS FFI、三路、触发） | 连续 8 h 无掉线 |
+| M4 相机 | `glue-camera` 命令后端 + MVS 脚本（单路）；三路/触发/8 h 未做 | 单路连续采集可运行，长时间稳定性待测 |
 | M5 界面 | `glue-app`（5 页面 + 叠加渲染 + SQLite 历史/统计） | ✅ 文件回放闭环可演示（相机版待接） |
 | M6 集成 | 存储/统计/报警、打包、ARM 交叉编译 | Windows 绿色包；RK3588 跑通 |
 
@@ -563,7 +563,7 @@ host/
 │  ├─ core/                   # 类型、配置、配方、判定
 │  ├─ vision/                 # 图像算法（纯 Rust）
 │  ├─ infer/                  # ONNX Runtime
-│  ├─ camera/                 # MVS FFI + 回放源
+│  ├─ camera/                 # 相机抽象：command 后端（GLUE 帧协议）
 │  ├─ pipeline/               # 编排、并行、计时
 │  ├─ store/                  # SQLite
 │  ├─ app/                    # egui 界面
