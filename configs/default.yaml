@@ -63,3 +63,65 @@ decide:
 runtime:
   device: cpu
   half: false
+
+# VisionTrain 合成分割数据集。
+# [合成边界] 只用于流程验证、冒烟和预训练，不能作为真实指标验收数据。
+synthetic_dataset:
+  version: visiontrain-glue-synthetic-v1
+  image_size: [1080, 1440]  # (height, width)，与首台相机原图分辨率一致
+  samples: 60
+  seed: 20261120
+  frames_per_object: 1
+  centerline_points: 180
+  split:
+    train: 0.70
+    val: 0.15
+    test: 0.15
+  scenario_weights:
+    ok: 0.30
+    narrow: 0.08
+    wide: 0.08
+    break: 0.16
+    bubble: 0.12
+    stringing: 0.10
+    contamination: 0.10
+    reflection: 0.06
+  scene:
+    background_range: [28.0, 76.0]
+    workpiece_range: [48.0, 118.0]
+    gradient_strength: [0.04, 0.22]
+    texture_sigma: [1.5, 7.0]
+    highlight_probability: 0.35
+    highlight_gain: 45.0
+    highlight_length_ratio: [1.2, 2.8]
+    strong_reflection_gain: 115.0
+    reflection_length_ratio: [4.0, 8.0]
+  glue:
+    width_px: [34.0, 58.0]
+    min_width_px: 5.0
+    length_ratio: [1.10, 1.55]  # 相对图像高度的中心线长度
+    angle_deg: [-24.0, 24.0]
+    amplitude_px: [2.0, 24.0]
+    wave_count: [0.7, 1.8]
+    slope_ratio: [-0.035, 0.035]
+    width_variation: [0.02, 0.16]
+    value_range: [105.0, 235.0]
+    texture_sigma: 8.0
+  variants:
+    narrow_scale: [0.45, 0.70]
+    wide_scale: [1.25, 1.65]
+  defects:
+    break_length_ratio: [0.08, 0.18]
+    break_margin_px: 2.0
+    bubble_radius_ratio: [0.18, 0.42]
+    bubble_min_radius_px: 2.0
+    bubble_ring_ratio: 0.20
+    stringing_length_ratio: [1.5, 4.0]
+    stringing_min_length_px: 8.0
+    stringing_bend_ratio: [-0.30, 0.30]
+    stringing_thickness_px: 2
+    contamination_radius_ratio: [0.18, 0.55]
+    contamination_min_radius_px: 2.0
+  camera:
+    blur_kernel: [1.0, 3.0]
+    noise_sigma: 2.2

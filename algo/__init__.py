@@ -13,6 +13,7 @@
 - pipeline   : 单帧端到端流水线
 - metrics    : 评测指标（IoU、召回、MAE/标准差/最大误差）
 - synth      : 合成样本生成（无真实数据时跑通链路与测试用）
+- synthetic_dataset : VisionTrain 涂胶分割训练集生成（仅合成预训练/冒烟）
 """
 
 __version__ = "0.1.0"

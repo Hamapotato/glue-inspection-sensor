@@ -13,6 +13,7 @@
 | [P0 指标与数据规范](algo/p0-spec.md) | M1–M10 指标口径、数据规范与假设登记 |
 | [接口契约](algo/interfaces.md) | 算法接口、配置键、输出结构和降级策略 |
 | [任务清单](algo/tasks.md) | P0–P5 任务、依赖关系与阻塞项 |
+| [VisionTrain 数据准备](algo/visiontrain-data-preparation.md) | 合成分割数据生成、输出格式、导入验证和非验收边界 |
 | [P1 宽度量测报告](algo/reports/p1-measure.md) | 当前合成自检报告；真实指标待现场验证 |
 
 ## 硬件

@@ -239,7 +239,7 @@ else: → OK
 
 ## 7. 仓库当前骨架（v0.2）
 
-已实现并通过单元测试（`py -3 -m unittest discover -s tests`，65 项全绿）：
+已实现并通过单元测试（`py -3 -m unittest discover -s tests`，72 项全绿）：
 
 ```
 algo/
@@ -255,10 +255,11 @@ algo/
 ├─ pipeline.py      单帧流水线（含降级与计时）
 ├─ metrics.py       IoU / 样本召回 / MAE·std·max / p50-p95 耗时
 ├─ synth.py         五类合成样本（冒烟与测试）
+├─ synthetic_dataset.py  VisionTrain 合成分割训练集（非验收数据）
 └─ visualize.py     叠加图
 configs/default.yaml
-scripts/{demo_synthetic,calibrate_board,eval_measure,run_measure_report}.py
-tests/              6 个测试模块、65 项用例
+scripts/{demo_synthetic,generate_visiontrain_dataset,calibrate_board,eval_measure,run_measure_report}.py
+tests/              7 个测试模块、72 项用例
 data/               README + manifest 模板（图像不入库）
 ```
 

@@ -104,9 +104,15 @@ locate:     {enabled, type, weights, score_thr, nms:{type,thr}, anchors:{k,iters
 reflect:    {enabled, type, weights, score_thr, input_size, high_value, min_area_px}
 decide:     {broken_min_rois, reflection_override}
 runtime:    {device, half}
+synthetic_dataset:
+            {version,image_size,samples,seed,frames_per_object,centerline_points,
+             split,scenario_weights,scene,glue,variants,defects,camera}
 ```
 
 约定：**代码里不允许出现业务阈值字面量**，全部从配置读。
+
+`synthetic_dataset` 仅控制 VisionTrain 合成训练集生成。所有输出均带
+`source=synthetic` 与 `acceptance_eligible=false`，不得用于真实指标验收。
 
 ---
 

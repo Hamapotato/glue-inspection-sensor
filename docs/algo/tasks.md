@@ -15,6 +15,7 @@
 | [x] A-04 | 配置基线 | `configs/default.yaml` | 所有阈值可配置，无硬编码 |
 | [x] A-05 | 数据目录与 manifest 模板 | `data/README.md` + 空 `manifest.csv` | 字段确认 |
 | [ ] A-06 | 试标 20 张图 | `data/labels/*` | 双人一致，标注规范无歧义 |
+| [x] A-07 | VisionTrain 合成分割数据集生成器 | `algo/synthetic_dataset.py` + CLI + 测试 | 图像/掩膜对齐、seeded、分组划分、显式标记非验收数据 |
 
 ## P1 传统量测链路（2 周）★ 优先
 

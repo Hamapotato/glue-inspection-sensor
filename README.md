@@ -13,6 +13,7 @@ GitHub：[Hamapotato/glue-inspection-sensor](https://github.com/Hamapotato/glue-
 - [x] 给出接口、供电、USB 和 LED 驱动初版方案
 - [x] 制定从论文复现到 RK3588 边缘计算产品的开发路线
 - [x] 完成传统视觉量测链路的可运行原型和合成数据验证
+- [x] 完成 VisionTrain 合成涂胶分割训练集生成器（仅流程验证/预训练）
 - [x] 完成首台 `MV-CB016-10UM-S` 相机与 MVS 环境准备
 - [ ] 完成机械结构设计
 - [ ] 完成主控板和 LED 灯板原理图、PCB
@@ -64,6 +65,7 @@ GitHub：[Hamapotato/glue-inspection-sensor](https://github.com/Hamapotato/glue-
 - [单相机标定与尺寸验证计划](docs/algo/calibration-plan.md)
 - [算法复现阶段性汇报](docs/algo/progress.md)
 - [算法复现方案](docs/algo/plan.md)｜[P0 指标与数据规范](docs/algo/p0-spec.md)｜[接口契约](docs/algo/interfaces.md)｜[任务清单](docs/algo/tasks.md)
+- [VisionTrain 合成数据准备](docs/algo/visiontrain-data-preparation.md)
 - [复现 BOM 与硬件设计说明](docs/hardware/reproduction-bom.md)
 - [首台相机采购清单](docs/hardware/first-procurement-list.md)
 - [海康 USB 相机与镜头选型对比](docs/hardware/hikrobot-usb-camera-comparison.md)

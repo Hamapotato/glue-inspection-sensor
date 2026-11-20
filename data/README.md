@@ -45,6 +45,16 @@ data/
 
 模板见 [`manifest.template.csv`](manifest.template.csv)。
 
+## VisionTrain 合成数据
+
+`algo/synthetic_dataset.py` 可生成独立目录下的合成训练集，包含图像、胶条掩膜、
+缺陷掩膜、困难背景掩膜、逐图 JSON、manifest 和按 `object_id` 分组划分。
+
+合成数据集不写入 `data/raw` 或 `data/labels`，默认输出到被 Git 忽略的
+`outputs/`。生成目录中的 `dataset.json` 固定写入 `acceptance_eligible=false`，
+只能用于流程验证、冒烟和预训练。详细格式和导入注意事项见
+[VisionTrain 数据准备](../docs/algo/visiontrain-data-preparation.md)。
+
 ## width.csv 字段
 
 | 字段 | 说明 |
