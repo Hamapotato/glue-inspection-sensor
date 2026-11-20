@@ -14,6 +14,7 @@ pub struct Config {
     pub quality: QualityCfg,
     pub locate: LocateCfg,
     pub reflect: ReflectCfg,
+    pub camera: CameraCfg,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -126,6 +127,24 @@ impl Default for LocateCfg {
             min_size: 8.0,
             anchors_wh: None,
         }
+    }
+}
+
+/// 相机采集配置：默认关闭。
+///
+/// `source=command` 时启动 `command` 子进程，从其 stdout 读取 GLUE 帧协议
+/// （`b"GLUE" | w:u32 | h:u32 | len:u32 | gray[len]`，由 scripts/camera_*.py 产生）。
+#[derive(Debug, Clone, Deserialize)]
+#[serde(default)]
+pub struct CameraCfg {
+    pub enabled: bool,
+    pub source: String,
+    pub command: Option<String>,
+}
+
+impl Default for CameraCfg {
+    fn default() -> Self {
+        Self { enabled: false, source: "command".into(), command: None }
     }
 }
 

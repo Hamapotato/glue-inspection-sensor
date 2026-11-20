@@ -19,11 +19,13 @@ if [ ! -f "$BIN" ]; then
 fi
 
 echo "[1/4] 创建目录 $PREFIX"
-install -d "$PREFIX/bin" "$PREFIX/configs" "$PREFIX/samples" "$PREFIX/logs"
+install -d "$PREFIX/bin" "$PREFIX/configs" "$PREFIX/configs/experiments" "$PREFIX/samples" "$PREFIX/logs" "$PREFIX/scripts"
 
 echo "[2/4] 安装二进制（$ARCH）"
 install -m 0755 "$BIN" "$PREFIX/bin/glue-agent"
 cp -f "$SRC/configs/default.yaml" "$PREFIX/configs/default.yaml"
+cp -f "$SRC"/configs/experiments/*.yaml "$PREFIX/configs/experiments/" 2>/dev/null || true
+cp -f "$SRC"/scripts/*.py "$PREFIX/scripts/" 2>/dev/null || true
 if [ -d "$SRC/samples" ]; then
   cp -f "$SRC"/samples/*.png "$PREFIX/samples/" 2>/dev/null || true
 fi
@@ -57,5 +59,9 @@ cat <<EOF
 启用服务（常驻扫描 samples，每 5 秒）：
   sudo systemctl enable --now glue-agent
   journalctl -u glue-agent -f
+
+相机模式（需先装 MVS SDK，见 deploy/CAMERA-MVS.md）：
+  cd $PREFIX && ./bin/glue-agent --config configs/experiments/camera-mvs.yaml \
+      --camera --frames 100 --mm-per-px 0.0833 --state logs/camera.jsonl
 
 EOF

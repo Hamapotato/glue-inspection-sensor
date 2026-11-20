@@ -109,6 +109,13 @@ cargo build --release -p glue-agent --features infer
 
 > 注意：当前仓库未包含 `.rknn` 产物，也未在真实板端实测性能；转换与验证需在 x86 Linux + 板端分别执行。
 
+## 4.3 相机（海康 MVS / USB3 Vision）
+
+- 步骤、udev、脚本与排障见 [deploy/CAMERA-MVS.md](deploy/CAMERA-MVS.md)；
+- 快速验证：`python3 scripts/camera_mvs.py --device 0 --fps 10 > /tmp/raw.bin`；
+- 运行：`./bin/glue-agent --config configs/experiments/camera-mvs.yaml --camera --frames 100 --state logs/camera.jsonl`；
+- GUI：左侧导航「相机」→「启动相机」（需桌面环境）。
+
 ## 5. 构建 GUI 版（需要显示环境）
 
 `glue-app`（egui）依赖 X11/Wayland 与 OpenGL ES，建议**直接在板子上编译**。

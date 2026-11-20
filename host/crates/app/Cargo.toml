@@ -13,6 +13,7 @@ glue-core = { path = "../core" }
 glue-vision = { path = "../vision" }
 glue-pipeline = { path = "../pipeline" }
 glue-infer = { path = "../infer" }
+glue-camera = { path = "../camera" }
 glue-store = { path = "../store" }
 anyhow = { workspace = true }
 eframe = { version = "0.31", default-features = false, features = ["glow", "default_fonts", "x11", "wayland"] }

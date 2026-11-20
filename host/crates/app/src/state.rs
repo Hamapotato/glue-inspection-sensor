@@ -10,6 +10,7 @@ use glue_vision::GrayImage;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Page {
     Inspect,
+    Camera,
     Recipe,
     History,
     Stats,
@@ -43,6 +44,24 @@ pub struct AppState {
 
 fn env_or(name: &str, default: &str) -> String {
     std::env::var(name).unwrap_or_else(|_| default.to_string())
+}
+
+/// 按配置构建 Inspector（推理器可选注入；推理配置有误时告警并回退启发式）。
+pub fn build_inspector(cfg: &Config, mm_per_px: Option<f64>) -> Inspector {
+    let mut cfg = cfg.clone();
+    if mm_per_px.is_some() {
+        cfg.calib.enabled = true;
+        cfg.calib.mm_per_px = mm_per_px;
+    }
+    let mut detectors = glue_pipeline::Detectors::default();
+    match glue_infer::detectors_from_config(&cfg) {
+        Ok((locate, reflect)) => {
+            detectors.locate = locate;
+            detectors.reflect = reflect;
+        }
+        Err(e) => eprintln!("[warn] 推理模块未启用：{e}"),
+    }
+    Inspector::with_detectors(cfg, detectors)
 }
 
 impl AppState {
@@ -83,22 +102,7 @@ impl AppState {
     }
 
     pub fn inspector(&self) -> Inspector {
-        let mut cfg = self.cfg.clone();
-        if self.mm_per_px.is_some() {
-            cfg.calib.enabled = true;
-            cfg.calib.mm_per_px = self.mm_per_px;
-        }
-        {
-            let mut detectors = glue_pipeline::Detectors::default();
-            match glue_infer::detectors_from_config(&cfg) {
-                Ok((locate, reflect)) => {
-                    detectors.locate = locate;
-                    detectors.reflect = reflect;
-                }
-                Err(e) => eprintln!("[warn] 推理模块未启用：{e}"),
-            }
-            Inspector::with_detectors(cfg, detectors)
-        }
+        build_inspector(&self.cfg, self.mm_per_px)
     }
 
     pub fn scan(&mut self) {

@@ -1049,6 +1049,7 @@ name = "glue-agent"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "glue-camera",
  "glue-core",
  "glue-infer",
  "glue-pipeline",
@@ -1064,6 +1065,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "eframe",
+ "glue-camera",
  "glue-core",
  "glue-infer",
  "glue-pipeline",
@@ -1072,6 +1074,14 @@ dependencies = [
  "image",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "glue-camera"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "glue-core",
 ]
 
 [[package]]

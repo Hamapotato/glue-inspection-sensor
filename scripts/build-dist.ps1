@@ -23,10 +23,12 @@ try {
 
 Write-Host "[3/5] Assemble bundle at $out ..."
 if (Test-Path $out) { Remove-Item $out -Recurse -Force }
-New-Item -ItemType Directory -Force -Path "$out\bin\aarch64", "$out\bin\x86_64", "$out\configs", "$out\samples", "$out\deploy" | Out-Null
+New-Item -ItemType Directory -Force -Path "$out\bin\aarch64", "$out\bin\x86_64", "$out\configs", "$out\configs\experiments", "$out\samples", "$out\deploy", "$out\scripts" | Out-Null
 Copy-Item (Join-Path $hostDir "target\aarch64-unknown-linux-musl\release\glue-agent") "$out\bin\aarch64\glue-agent"
 Copy-Item (Join-Path $hostDir "target\x86_64-unknown-linux-musl\release\glue-agent") "$out\bin\x86_64\glue-agent"
 Copy-Item (Join-Path $root "configs\default.yaml") "$out\configs\default.yaml"
+Copy-Item (Join-Path $root "configs\experiments\camera-mvs.yaml"), (Join-Path $root "configs\experiments\camera-synthetic.yaml") "$out\configs\experiments\" 2>$null
+Copy-Item (Join-Path $root "scripts\camera_mvs.py"), (Join-Path $root "scripts\camera_synthetic.py") "$out\scripts\"
 Copy-Item (Join-Path $hostDir "deploy\*.sh"), (Join-Path $hostDir "deploy\glue-agent.service"), (Join-Path $hostDir "deploy\README.txt") "$out\deploy\"
 Copy-Item (Join-Path $hostDir "deploy\README.txt") "$out\README.txt"
 

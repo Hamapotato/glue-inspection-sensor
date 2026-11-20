@@ -50,6 +50,7 @@ host/
    ├─ store/                # SQLite 记录与统计
    ├─ app/                  # egui 界面与状态
    ├─ agent/                # 无界面检测服务（RK3588 / Linux 板端）
+   ├─ camera/               # 相机采集抽象（GLUE 帧协议；MVS 由脚本接入）
    ├─ infer/                # ONNX 推理（tract，纯 Rust）
    └─ cli/                  # 命令行（inspect/gen/bench）
 ```
@@ -151,6 +152,9 @@ host/
 
 # 无头检测（回归）
 .\run-headless.bat
+
+# 相机连续检测（需配置 camera.command，见 deploy/CAMERA-MVS.md）
+.\target\release\glue-agent.exe --config ..\configs\experiments\camera-synthetic.yaml --camera --frames 5
 
 # 交叉编译 RK3588 版（产物 dist/rk3588）
 powershell -ExecutionPolicy Bypass -File scripts\build-aarch64.ps1

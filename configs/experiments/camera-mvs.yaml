@@ -1,0 +1,5 @@
+# 海康工业相机（MVS SDK，USB3 Vision）：需板端已装 MVS 并配好 udev
+camera:
+  enabled: true
+  source: command
+  command: "python3 scripts/camera_mvs.py --device 0 --fps 10"

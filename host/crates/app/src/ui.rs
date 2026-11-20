@@ -6,6 +6,7 @@ use eframe::egui::Color32;
 use glue_core::{FrameResult, VerdictCode};
 use glue_vision::GrayImage;
 
+use crate::camera::{CamMsg, CameraWorker};
 use crate::state::{AppState, Page};
 
 const BG: Color32 = Color32::from_rgb(244, 246, 249);
@@ -25,6 +26,13 @@ pub struct HostApp {
     texture: Option<egui::TextureHandle>,
     tex_key: String,
     selected: Option<i64>,
+    cam: Option<CameraWorker>,
+    cam_latest: Option<(GrayImage, FrameResult, u64)>,
+    cam_tex: Option<egui::TextureHandle>,
+    cam_tex_seq: u64,
+    cam_error: Option<String>,
+    cam_frames: u64,
+    cam_fps: f32,
 }
 
 impl HostApp {
@@ -39,6 +47,13 @@ impl HostApp {
             texture: None,
             tex_key: String::new(),
             selected: None,
+            cam: None,
+            cam_latest: None,
+            cam_tex: None,
+            cam_tex_seq: 0,
+            cam_error: None,
+            cam_frames: 0,
+            cam_fps: 0.0,
         }
     }
 
@@ -109,6 +124,7 @@ impl HostApp {
                 ui.add_space(16.0);
                 for (p, label) in [
                     (Page::Inspect, "检测"),
+            (Page::Camera, "相机"),
                     (Page::Recipe, "配方"),
                     (Page::History, "历史"),
                     (Page::Stats, "统计"),
@@ -143,6 +159,7 @@ impl HostApp {
     fn top_bar(&mut self, ctx: &egui::Context) {
         let title = match self.page {
             Page::Inspect => "检测",
+            Page::Camera => "相机检测",
             Page::Recipe => "配方",
             Page::History => "历史记录",
             Page::Stats => "统计",
@@ -209,6 +226,166 @@ impl HostApp {
                     ui.label(egui::RichText::new(&self.st.status).size(13.0).color(TEXT));
                 });
             });
+    }
+
+
+    fn camera_start(&mut self, ctx: &egui::Context) {
+        if self.cam.is_some() {
+            return;
+        }
+        match CameraWorker::start(self.st.cfg.clone(), self.st.mm_per_px, ctx.clone()) {
+            Ok(w) => {
+                self.cam = Some(w);
+                self.cam_error = None;
+                self.cam_frames = 0;
+                self.cam_latest = None;
+                self.cam_tex = None;
+                self.cam_tex_seq = 0;
+                self.st.status = "相机采集中".into();
+            }
+            Err(e) => {
+                self.cam_error = Some(e.clone());
+                self.st.status = format!("相机启动失败：{e}");
+            }
+        }
+    }
+
+    fn camera_stop(&mut self) {
+        self.cam = None;
+        self.st.status = "相机已停止".into();
+    }
+
+    fn camera_poll(&mut self) {
+        let msgs = {
+            let Some(w) = &self.cam else { return };
+            let mut v = Vec::new();
+            while let Some(m) = w.try_recv() {
+                v.push(m);
+            }
+            v
+        };
+        for m in msgs {
+            match m {
+                CamMsg::Frame { img, result, seq } => {
+                    self.cam_frames += 1;
+                    let secs = self
+                        .cam
+                        .as_ref()
+                        .map(|w| w.started.elapsed().as_secs_f32())
+                        .unwrap_or(1.0)
+                        .max(0.001);
+                    self.cam_fps = self.cam_frames as f32 / secs;
+                    self.cam_latest = Some((img, result, seq));
+                }
+                CamMsg::Error(e) => {
+                    self.cam_error = Some(e.clone());
+                    self.st.status = format!("相机错误：{e}");
+                    self.cam = None;
+                }
+                CamMsg::Stopped => {
+                    self.cam = None;
+                }
+            }
+        }
+    }
+
+    fn camera_page(&mut self, ui: &mut egui::Ui) {
+        self.camera_poll();
+        egui::Frame::default()
+            .fill(Color32::WHITE)
+            .inner_margin(12)
+            .corner_radius(8)
+            .show(ui, |ui| {
+                ui.horizontal(|ui| {
+                    if ui.button("启动相机").clicked() {
+                        self.camera_start(ui.ctx());
+                    }
+                    if ui.button("停止").clicked() {
+                        self.camera_stop();
+                    }
+                    ui.label(format!("状态：{}", if self.cam.is_some() { "采集中" } else { "已停止" }));
+                    if self.cam_frames > 0 {
+                        ui.label(format!("帧数 {} ｜ {:.1} fps", self.cam_frames, self.cam_fps));
+                    }
+                    if let Some(e) = &self.cam_error {
+                        ui.colored_label(ALARM, format!("错误：{e}"));
+                    }
+                });
+                ui.label(
+                    egui::RichText::new(format!(
+                        "采集命令来自 {} 的 camera.command（可用 configs/experiments/camera-*.yaml）",
+                        self.st.cfg_path
+                    ))
+                    .size(12.0)
+                    .color(MUTED),
+                );
+            });
+        ui.add_space(8.0);
+        ui.horizontal_top(|ui| {
+            let avail = ui.available_size();
+            let img_w = (avail.x * 0.66).max(320.0);
+            egui::Frame::default()
+                .fill(Color32::from_rgb(15, 23, 42))
+                .inner_margin(8)
+                .corner_radius(8)
+                .show(ui, |ui| {
+                    let h = img_w * 0.75;
+                    ui.set_min_size(egui::vec2(img_w - 16.0, h));
+                    if let Some((img, _, seq)) = &self.cam_latest {
+                        if self.cam_tex.is_none() || self.cam_tex_seq != *seq {
+                            let mut rgba = Vec::with_capacity(img.data.len() * 4);
+                            for &v in &img.data {
+                                rgba.extend_from_slice(&[v, v, v, 255]);
+                            }
+                            let color = egui::ColorImage::from_rgba_unmultiplied([img.w, img.h], &rgba);
+                            self.cam_tex = Some(ui.ctx().load_texture(
+                                format!("cam-{seq}"),
+                                color,
+                                egui::TextureOptions::LINEAR,
+                            ));
+                            self.cam_tex_seq = *seq;
+                        }
+                        if let Some(tex) = &self.cam_tex {
+                            ui.add(egui::Image::new(tex).fit_to_exact_size(egui::vec2(img_w - 16.0, h)));
+                        }
+                    } else {
+                        ui.centered_and_justified(|ui| {
+                            ui.label(
+                                egui::RichText::new("尚未采集到帧：点击「启动相机」")
+                                    .color(Color32::from_rgb(203, 213, 225)),
+                            );
+                        });
+                    }
+                });
+            ui.add_space(12.0);
+            if let Some((_, res, _)) = &self.cam_latest {
+                egui::Frame::default()
+                    .fill(Color32::WHITE)
+                    .inner_margin(12)
+                    .corner_radius(8)
+                    .show(ui, |ui| {
+                        ui.label(egui::RichText::new("判定").size(12.0).color(MUTED));
+                        ui.label(
+                            egui::RichText::new(res.decision.code.as_str())
+                                .size(22.0)
+                                .strong()
+                                .color(verdict_color(res.decision.code)),
+                        );
+                        ui.label(&res.decision.message);
+                        if let Some(w) = res.decision.width_mm {
+                            ui.label(format!("宽度 {w:.2} mm"));
+                        }
+                        ui.label(format!(
+                            "耗时 {:.1} ms（定位 {:.1}，量测 {:.1}）",
+                            res.timings.total_ms, res.timings.locate_ms, res.timings.measure_ms
+                        ));
+                        for n in &res.notes {
+                            ui.label(egui::RichText::new(n).size(12.0).color(WARN));
+                        }
+                        ui.label(format!("RoI：{}", res.rois.len()));
+                    });
+            }
+        });
     }
 
     fn inspect_page(&mut self, ui: &mut egui::Ui) {
@@ -697,6 +874,7 @@ impl eframe::App for HostApp {
             .frame(egui::Frame::default().fill(BG).inner_margin(12.0))
             .show(ctx, |ui| match self.page {
                 Page::Inspect => self.inspect_page(ui),
+                Page::Camera => self.camera_page(ui),
                 Page::Recipe => self.recipe_page(ui),
                 Page::History => self.history_page(ui),
                 Page::Stats => self.stats_page(ui),

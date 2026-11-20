@@ -41,6 +41,8 @@ fn main() -> Result<()> {
     let mut state: Option<PathBuf> = None;
     let mut mm_per_px: Option<f64> = None;
     let mut watch_secs: Option<u64> = None;
+    let mut camera = false;
+    let mut frames: u64 = 0;
 
     while let Some(a) = args.next() {
         match a.as_str() {
@@ -50,9 +52,11 @@ fn main() -> Result<()> {
             "--state" => state = args.next().map(PathBuf::from),
             "--mm-per-px" => mm_per_px = args.next().and_then(|s| s.parse().ok()),
             "--watch" => watch_secs = args.next().and_then(|s| s.parse().ok()),
+            "--camera" => camera = true,
+            "--frames" => frames = args.next().and_then(|s| s.parse().ok()).unwrap_or(0),
             "-h" | "--help" => {
                 println!(
-                    "用法: glue-agent --config <yaml> --input <dir> [--mm-per-px F] [--out json] [--state jsonl] [--watch SEC]"
+                    "用法: glue-agent --config <yaml> --input <dir> [--mm-per-px F] [--out json] [--state jsonl] [--watch SEC]\n        glue-agent --config <yaml> --camera [--frames N] [--mm-per-px F] [--state jsonl]"
                 );
                 return Ok(());
             }
@@ -66,7 +70,12 @@ fn main() -> Result<()> {
         cfg.calib.enabled = true;
         cfg.calib.mm_per_px = Some(mm);
     }
+    let camera_cfg = cfg.camera.clone();
     let inspector = inspector(cfg);
+
+    if camera {
+        return run_camera(&inspector, &camera_cfg, frames, state.as_deref());
+    }
 
     match watch_secs {
         Some(secs) => {
@@ -82,6 +91,48 @@ fn main() -> Result<()> {
             Ok(())
         }
     }
+}
+
+
+/// 相机模式：连续采集 → 检测 → 逐帧写 JSONL。`frames=0` 表示一直跑。
+fn run_camera(
+    inspector: &Inspector,
+    camera_cfg: &glue_core::CameraCfg,
+    frames: u64,
+    state: Option<&Path>,
+) -> Result<()> {
+    let state_path = state.map(Path::to_path_buf).unwrap_or_else(|| PathBuf::from("glue-camera.jsonl"));
+    eprintln!(
+        "[agent] 相机模式：{}（最多 {} 帧，状态写 {:?}）",
+        camera_cfg.command.as_deref().unwrap_or("<未配置 camera.command>"),
+        if frames == 0 { "不限".to_string() } else { frames.to_string() },
+        state_path
+    );
+    let mut src = glue_camera::open(camera_cfg)?;
+    let mut n: u64 = 0;
+    loop {
+        let f = src.grab()?;
+        let img = GrayImage { w: f.width, h: f.height, data: f.data };
+        let r = inspector.inspect(&img);
+        let record = serde_json::json!({
+            "frame": n,
+            "width": f.width,
+            "height": f.height,
+            "verdict": r.decision.code.as_str(),
+            "message": r.decision.message,
+            "width_mm": r.decision.width_mm,
+            "rois": r.rois.iter().map(|b| b.to_array()).collect::<Vec<_>>(),
+            "timings_ms": r.timings,
+            "notes": r.notes,
+        });
+        append_line(&state_path, &record)?;
+        n += 1;
+        if frames > 0 && n >= frames {
+            break;
+        }
+    }
+    eprintln!("[agent] 相机模式结束：{n} 帧，状态写 {}", state_path.display());
+    Ok(())
 }
 
 fn run_once(

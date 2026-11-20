@@ -76,3 +76,9 @@ decide:
 runtime:
   device: cpu
   half: false
+
+# 相机采集（可选）：source=command 时启动命令，按 GLUE 帧协议读 stdout
+camera:
+  enabled: false
+  source: command
+  command: null          # 例：python3 scripts/camera_mvs.py --device 0 --fps 10
