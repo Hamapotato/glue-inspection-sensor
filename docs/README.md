@@ -14,6 +14,7 @@
 | [接口契约](algo/interfaces.md) | 算法接口、配置键、输出结构和降级策略 |
 | [任务清单](algo/tasks.md) | P0–P5 任务、依赖关系与阻塞项 |
 | [VisionTrain 数据准备](algo/visiontrain-data-preparation.md) | 合成分割数据生成、输出格式、导入验证和非验收边界 |
+| [VisionTrain 训练与部署 SOP](algo/visiontrain-training-sop.md) | 从方案创建、标注、训练、评估到 VisionMaster 部署的逐步操作 |
 | [P1 宽度量测报告](algo/reports/p1-measure.md) | 当前合成自检报告；真实指标待现场验证 |
 
 ## 硬件

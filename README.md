@@ -66,6 +66,7 @@ GitHub：[Hamapotato/glue-inspection-sensor](https://github.com/Hamapotato/glue-
 - [算法复现阶段性汇报](docs/algo/progress.md)
 - [算法复现方案](docs/algo/plan.md)｜[P0 指标与数据规范](docs/algo/p0-spec.md)｜[接口契约](docs/algo/interfaces.md)｜[任务清单](docs/algo/tasks.md)
 - [VisionTrain 合成数据准备](docs/algo/visiontrain-data-preparation.md)
+- [VisionTrain 训练与部署 SOP](docs/algo/visiontrain-training-sop.md)
 - [复现 BOM 与硬件设计说明](docs/hardware/reproduction-bom.md)
 - [首台相机采购清单](docs/hardware/first-procurement-list.md)
 - [海康 USB 相机与镜头选型对比](docs/hardware/hikrobot-usb-camera-comparison.md)
