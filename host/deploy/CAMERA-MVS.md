@@ -99,6 +99,27 @@ cd /opt/glue
 
 > 注意：当前仓库的演示权重是**合成数据**训练的，真实相机图像分布不同，定位效果需要真实数据重新训练/微调后再评估；没有真实数据前，不要把演示权重的检测结果当成现场精度。
 
+## 4.2 获取演示权重（ONNX，不入库）
+
+模型权重与 `outputs/` 全部在 `.gitignore` 里，**clone 仓库后不会有**，需要从构建机传输：
+
+```bash
+# 构建机（Windows）在仓库根目录：
+py -3 -m http.server 8000 --directory outputs\demo
+# 记住构建机局域网 IP（如 10.22.20.247）
+
+# 板端：
+mkdir -p outputs/demo/onnx
+wget -O outputs/demo/onnx/rpn.onnx http://<构建机IP>:8000/onnx/rpn.onnx
+wget -O outputs/demo/anchors.json     http://<构建机IP>:8000/anchors.json
+sha256sum outputs/demo/onnx/rpn.onnx  # 与构建机一致
+```
+
+构建机上的 SHA256：`F85CC1E3B13A8D936B980F159709EE2B55CA3B6CADFE655627418D822C492C91`
+（本仓库演示权重，合成数据训练；重新训练会变化）
+
+也可以把 `best.pt` 一起拷走，再用本仓库脚本重新导出 ONNX。
+
 ## 5. 常见问题
 
 | 现象 | 处理 |

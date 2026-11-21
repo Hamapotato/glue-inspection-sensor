@@ -10,9 +10,9 @@ if not exist "host\target\release\glue-app.exe" (
   exit /b 1
 )
 if not exist "outputs\demo\onnx\rpn.onnx" (
-  echo [ERROR] 缺少演示权重 outputs\demo\onnx\rpn.onnx
-  echo         请先执行（脚本在 feat/b1-b2-models 分支）：powershell -ExecutionPolicy Bypass -File scripts\build-demo-weights.ps1
-  echo         或手动：python scripts\make_demo_dataset.py ^&^& python scripts\train_demo_weights.py --task rpn --kmeans-anchors ^&^& python scripts\export_onnx.py --rpn-weights outputs\demo\rpn\best.pt --out outputs\demo\onnx
+  echo [ERROR] 缺少演示权重 outputs\demo\onnx\rpn.onnx（权重不入库）
+  echo         方式 A：在构建机上生成：powershell -ExecutionPolicy Bypass -File scripts\build-demo-weights.ps1
+  echo         方式 B：从构建机 HTTP 下载到本目录：wget http://^<构建机IP^>:8000/onnx/rpn.onnx
   exit /b 1
 )
 

@@ -11,11 +11,10 @@ if [ ! -x "$BIN" ]; then
   exit 1
 fi
 if [ ! -f "outputs/demo/onnx/rpn.onnx" ]; then
-  echo "[ERROR] 缺少演示权重 outputs/demo/onnx/rpn.onnx"
-  echo "        请先在仓库根目录执行："
-  echo "        python3 scripts/make_demo_dataset.py --with-reflection"
-  echo "        python3 scripts/train_demo_weights.py --task rpn --kmeans-anchors --out outputs/demo"
-  echo "        python3 scripts/export_onnx.py --rpn-weights outputs/demo/rpn/best.pt --out outputs/demo/onnx"
+  echo "[ERROR] 缺少演示权重 outputs/demo/onnx/rpn.onnx（权重不入库）"
+  echo "        方式 A：从构建机下载（构建机执行 py -3 -m http.server 8000 --directory outputs/demo）："
+  echo "          mkdir -p outputs/demo/onnx && wget -O outputs/demo/onnx/rpn.onnx http://<构建机IP>:8000/onnx/rpn.onnx"
+  echo "        方式 B：在构建机生成后拷贝：scripts/build-demo-weights.ps1（需 Python+torch）"
   exit 1
 fi
 
