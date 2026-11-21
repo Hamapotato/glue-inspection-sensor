@@ -142,3 +142,23 @@ python3 qnn_yolov5_multi.py 2>&1 | tee /tmp/aidlite_test/C_yolo_qnn248_npu.log
 - 所有数字必须来自实际日志；失败就写失败，**不得估算**；
 - 不改仓库、不装/升级软件、不动相机与 MVS 配置；
 - 遇到权限/路径问题，先记录错误原文再停止，不要反复尝试修改系统。
+
+## 8. 首次执行结果（2026-11-22）与重跑要求
+
+| 测试 | 结果 |
+| --- | --- |
+| A. 我们的 RPN（ONNX CPU，rpn-static） | load=0，invoke p50 12.96 ms；但脚本当时 anchor 顺序有 bug，框异常 |
+| B. 官方 YOLOv5 CPU | 172.18 ms/次（10 次均值，640） |
+| C. 官方 YOLOv5 NPU QNN248 | 2.27 ms/次（10 次均值），与 CPU 同结果；NPU 可用 |
+| GPU | `in_tensor_name invalid`，非关键 |
+
+**重跑要求**：仓库已修正 `scripts/aidlite_rpn_test.py` 的 anchor 排布（`dbf9fb7` 之后）。
+拉取最新提交后重新执行测试 A：
+
+```bash
+cd "$REPO" && git pull
+python3 scripts/aidlite_rpn_test.py --image outputs/rust_samples/0000_normal.png --iters 10 2>&1 | tee /tmp/aidlite_test/A2_rpn_onnx_cpu_fixed.log
+sha256sum outputs/demo/onnx/rpn-static.onnx   # 应为 fb84b4e24e555afe...
+```
+
+预期：`top0 score≈0.9997`，框覆盖胶条（y≈420~540，x 在画面内）。

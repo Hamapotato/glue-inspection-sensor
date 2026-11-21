@@ -39,14 +39,15 @@ def letterbox_gray(gray: np.ndarray, size: int, pad_value: int = 114):
 
 
 def anchors_for(size: int, stride: int, wh: list[list[float]]) -> np.ndarray:
+    """位置优先、每个位置按 wh 顺序展开（与 Rust rpn::anchors_with_wh 一致）。"""
     f = size // stride
     ys, xs = np.mgrid[0:f, 0:f]
-    cx = (xs + 0.5) * stride
-    cy = (ys + 0.5) * stride
-    return np.concatenate(
-        [np.stack([cx.ravel(), cy.ravel(), np.full(f * f, aw), np.full(f * f, ah)], axis=1) for aw, ah in wh],
-        axis=0,
-    ).astype(np.float32)
+    cx = ((xs + 0.5) * stride).ravel()
+    cy = ((ys + 0.5) * stride).ravel()
+    n, k = f * f, len(wh)
+    pos = np.repeat(np.stack([cx, cy], axis=1), k, axis=0)
+    sizes = np.tile(np.asarray(wh, dtype=np.float32), (n, 1))
+    return np.concatenate([pos, sizes], axis=1).astype(np.float32)
 
 
 def decode(anchors: np.ndarray, reg: np.ndarray) -> np.ndarray:
@@ -82,6 +83,9 @@ def main() -> int:
 
     import aidlite  # type: ignore
 
+    import hashlib
+
+    print(f"[model] {model_path}  size={model_path.stat().st_size}  sha256={hashlib.sha256(model_path.read_bytes()).hexdigest()}")
     print(f"[aidlite] lib={aidlite.get_library_version()} py={aidlite.get_py_library_version()} abi={aidlite.get_abi_version()}")
     aidlite.set_log_level(aidlite.LogLevel.INFO)
 
@@ -117,11 +121,19 @@ def main() -> int:
 
     # 输入名：优先按 info 名字找
     in_name = in_info[0][0].name if in_info and in_info[0] else ""
-    try:
-        in_idx = interp.input_tensor_name_to_index(in_name)
-        print(f"[aidlite] input name={in_name} index={in_idx}")
-        ret = interp.set_input_tensor(in_idx, data)
-    except Exception:  # noqa: BLE001
+    ret = -1
+    for name in (in_name, "input", "images"):
+        if not name:
+            continue
+        try:
+            in_idx = interp.input_tensor_name_to_index(name)
+            print(f"[aidlite] input name={name} index={in_idx}")
+            ret = interp.set_input_tensor(in_idx, data)
+            if ret == 0:
+                break
+        except Exception:  # noqa: BLE001
+            continue
+    if ret != 0:
         ret = interp.set_input_tensor(0, data)
     if ret != 0:
         print("[ERROR] set_input_tensor 失败（检查输入 dtype/布局）", file=sys.stderr)
@@ -152,18 +164,19 @@ def main() -> int:
     print(f"[aidlite] invoke x{max(1, args.iters)}: p50≈{sorted(times)[len(times)//2]:.2f} ms (含取输出)")
 
     anchors = anchors_for(args.size, 16, json.loads(Path(args.anchors).read_text(encoding="utf-8")))
-    scores = sigmoid(cls)
+    with np.errstate(over="ignore", invalid="ignore"):
+        scores = sigmoid(cls)
+        boxes = decode(anchors, reg)
     top = np.argsort(-scores)[:5]
-    boxes = decode(anchors, reg)
     print(f"[result] cls={cls.shape} reg={reg.shape} anchors={anchors.shape}")
     for rank, i in enumerate(top):
         b = boxes[i]
         # 还原到原图：去 padding、除以 scale
-        x1 = (b[0] - px) / scale
-        y1 = (b[1] - py) / scale
-        x2 = (b[2] - px) / scale
-        y2 = (b[3] - py) / scale
-        print(f"  top{rank}: score={scores[i]:.4f}  box(原图)=[{x1:.1f},{y1:.1f},{x2:.1f},{y2:.1f}]")
+        x1 = float(np.clip((b[0] - px) / scale, 0, gray.shape[1]))
+        y1 = float(np.clip((b[1] - py) / scale, 0, gray.shape[0]))
+        x2 = float(np.clip((b[2] - px) / scale, 0, gray.shape[1]))
+        y2 = float(np.clip((b[3] - py) / scale, 0, gray.shape[0]))
+        print(f"  top{rank}: score={scores[i]:.4f}  box(原图,已裁剪)=[{x1:.1f},{y1:.1f},{x2:.1f},{y2:.1f}]")
 
     interp.destroy()
     print("[ok] AidLite ONNX 后端跑通（若 box 覆盖胶条区域，说明模型与预处理一致）")

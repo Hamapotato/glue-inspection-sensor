@@ -132,6 +132,21 @@ cd /tmp/aidlite_qnn248/python && python3 qnn_yolov5_multi.py
 "CPU / GPU / NPU" 的推理耗时对比——这是"NPU 是否可行"的直接证据。
 （注意：不同模型/输入尺寸不能直接比，必须是同一模型。）
 
+## 2.7 板端实测结果（2026-11-22，首次执行）
+
+| 测试 | 结果 | 说明 |
+| --- | --- | --- |
+| A. 我们的 RPN（AidLite ONNX CPU） | `rpn-static.onnx` load ret=0；输入 `[1,1,320,320]`，输出 `cls [1,3600]` / `reg [1,3600,4]`；invoke p50 **12.96 ms** | 首次报告的"随机权重"是**测试脚本 anchor 顺序 bug** 导致解码异常，模型本身正常（修正后在 PC 复算 top1 score=0.9997，框 y≈419.8~540.3，正好覆盖胶条） |
+| B. 官方 YOLOv5 CPU（AidLite ONNX，640） | 10 次 invoke 合计 1721.75 ms → 平均 **172.18 ms/次** | 检出 4 个目标 |
+| C. 官方 YOLOv5 NPU（AidLite QNN248 / DSP） | 10 次 invoke 合计 22.70 ms → 平均 **2.27 ms/次**；检出 4 个目标，与 CPU 一致 | Device `type[0] cores_num[1]`；未使用回退；单次 0.002 ms 是异步提交，按 10 次总和取均值才可靠 |
+| GPU（AidLite ONNX） | 失败：`in_tensor_name invalid` | 非关键路径，后续再调 |
+
+**结论**：
+
+1. **NPU 在本板可用**（QNN248 + HTP V73），官方同模型上 NPU 相对 CPU **约 75.9×**（172.18 / 2.27 ms）；
+2. **我们的 RPN 可以走 AidLite ONNX 后端**（静态模型 12.96 ms CPU）；真实权重需用 `export_onnx.py --rpn-static` 重新导出静态版（动态 batch 不被 AidLite 接受）；
+3. **我们的 RPN 上 NPU 的阻塞点仍是 `.ctx.bin` 转换**（板端无转换工具，需 x86_64 Linux + QNN SDK）。
+
 ## 3. 三条可选路线
 
 ### A. AidLite（AidLux 自带，最快）

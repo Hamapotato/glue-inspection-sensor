@@ -44,10 +44,10 @@ def anchors_for(size: int, stride: int, wh: list[list[float]]) -> np.ndarray:
     ys, xs = np.mgrid[0:f, 0:f]
     cx = (xs + 0.5) * stride
     cy = (ys + 0.5) * stride
-    out = []
-    for aw, ah in wh:
-        out.append(np.stack([cx.ravel(), cy.ravel(), np.full(f * f, aw), np.full(f * f, ah)], axis=1))
-    return np.concatenate(out, axis=0).astype(np.float32)
+    n, k = f * f, len(wh)
+    pos = np.repeat(np.stack([cx.ravel(), cy.ravel()], axis=1), k, axis=0)
+    sizes = np.tile(np.asarray(wh, dtype=np.float32), (n, 1))
+    return np.concatenate([pos, sizes], axis=1).astype(np.float32)
 
 
 def decode(anchors: np.ndarray, reg: np.ndarray) -> np.ndarray:
