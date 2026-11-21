@@ -33,6 +33,7 @@ Copy-Item (Join-Path $hostDir "deploy\*.sh"), (Join-Path $hostDir "deploy\glue-a
 Copy-Item (Join-Path $hostDir "deploy\README.txt") "$out\README.txt"
 Copy-Item (Join-Path $hostDir "deploy\CAMERA-MVS.md") "$out\deploy\CAMERA-MVS.md" 2>$null
 Copy-Item (Join-Path $hostDir "deploy\RKNN-CHECKLIST.md") "$out\deploy\RKNN-CHECKLIST.md" 2>$null
+Copy-Item (Join-Path $hostDir "deploy\AIDLITE-TEST-PLAN.md") "$out\deploy\AIDLITE-TEST-PLAN.md" 2>$null
 
 # Samples: one per kind (normal/narrow/wide/broken/no_roi/dark/overexposed/blurry)
 $src = Join-Path $root "outputs\rust_samples"

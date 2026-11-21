@@ -98,7 +98,7 @@ nm -D --defined-only /usr/local/lib/libaidlite.so 2>/dev/null | head -40
 | ONNX → ctx.bin | 需要 x86_64 Linux + QNN SDK（qairt-converter / qnn-context-binary-generator），或 AidLux 提供的在线转换服务 |
 | AidLite ONNX 后端 | ✅ 可直接跑 `rpn-static.onnx`（CPU/GPU），用于先验证 API 与模型 |
 
-新增验证脚本：`scripts/aidlite_rpn_test.py`（板端运行，打印张量信息、单帧耗时与解码后的前 5 个 RoI）。
+新增验证脚本：`scripts/aidlite_rpn_test.py`；完整测试流程见 [AIDLITE-TEST-PLAN.md](AIDLITE-TEST-PLAN.md)（可直接交给板端智能体执行）。（板端运行，打印张量信息、单帧耗时与解码后的前 5 个 RoI）。
 
 ## 2.5 与 RK3588 的关系（澄清 GPU/NPU）
 
