@@ -1,0 +1,13 @@
+# AidLite 推理（ONNX 后端，CPU/GPU）；板端需安装 aidlite 并构建 --features aidlite
+locate:
+  enabled: true
+  type: aidlite
+  weights: outputs/demo/onnx/rpn-static.onnx
+  input_size: 320
+  score_thr: 0.95
+  pre_topk: 1000
+  post_topk: 300
+  min_size: 8.0
+  anchors_wh: [[142.5, 30.0], [142.5, 30.0], [142.5, 30.0], [300.0, 15.0], [300.0, 30.0], [300.0, 30.0], [300.0, 45.0], [300.0, 45.0], [300.0, 45.0]]
+reflect:
+  enabled: false

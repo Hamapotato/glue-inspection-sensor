@@ -88,6 +88,26 @@ python3 scripts/verify_rknn.py --rknn outputs/demo/rknn/rpn.rknn --onnx outputs/
 
 失败行为：运行库缺失、模型形状不符时 `detect()` 返回错误，pipeline 回退启发式并把原因写入 `FrameResult.notes`（不静默降级）。
 
+## 5.1 AidLite 后端（feature `aidlite`，QCS8550/AidLux）
+
+AidLite 只有 C++/Python 接口，Rust 侧通过**常驻 Python 子进程**调用（`scripts/aidlite_server.py`，GLUE 二进制协议），
+预处理/anchors/解码/NMS 与 ONNX 路径共用，便于直接对比耗时。
+
+```bash
+# 板端构建（需 aidlite Python 包）
+cargo build --release -p glue-cli --features aidlite
+cargo build --release -p glue-agent --features aidlite          # 无界面
+cargo build --release -p glue-app --features aidlite            # GUI
+```
+
+配置：`locate.type = aidlite`，`weights` 指向静态 ONNX，`anchors_wh` 与训练一致
+（`configs/experiments/demo-aidlite.yaml`、`camera-aidlite.yaml`）。
+
+环境变量：
+- `GLUE_AIDLITE_CMD`：完整命令（默认 `python3 scripts/aidlite_server.py --model <weights> --accel cpu`）；
+- `GLUE_AIDLITE_ACCEL=cpu|gpu`；
+- `GLUE_AIDLITE_PYTHON` / `GLUE_AIDLITE_SCRIPT`：分别覆盖解释器与脚本路径。
+
 ## 6. 已知限制
 
 1. **未接入 pipeline**：当前 `glue-vision::locate` 仍是启发式；RPN 的 ONNX 特征图尚未替换它（下一步：`Detector` trait + 配置开关）；

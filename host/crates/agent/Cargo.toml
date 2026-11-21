@@ -20,5 +20,6 @@ serde_json = { workspace = true }
 image = { workspace = true }
 
 [features]
+aidlite = ["glue-infer/aidlite"]
 default = []
 infer = ["dep:glue-infer"]

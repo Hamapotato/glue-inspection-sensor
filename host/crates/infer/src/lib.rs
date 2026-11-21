@@ -19,6 +19,8 @@ pub mod rpn;
 pub mod yolo;
 #[cfg(feature = "rknn")]
 pub mod rknn;
+#[cfg(feature = "aidlite")]
+pub mod aidlite;
 
 /// 运行器：输入 f32（行优先、1×1×h×w），返回各输出张量（形状, 数据）。
 pub type Runner =
@@ -232,7 +234,28 @@ pub fn detectors_from_config(cfg: &Config) -> Result<Detectors> {
             .weights
             .as_ref()
             .context("locate.enabled=true 但未配置 weights")?;
-        if cfg.locate.kind == "rknn" {
+        if cfg.locate.kind == "aidlite" {
+            #[cfg(feature = "aidlite")]
+            {
+                if !Path::new(path).exists() {
+                    bail!("AidLite 模型不存在：{path}");
+                }
+                locate = Some(Box::new(aidlite::AidliteDetector::open(
+                    PathBuf::from(path),
+                    cfg.locate.input_size,
+                    cfg.locate.score_thr as f32,
+                    cfg.locate.pre_topk,
+                    cfg.locate.post_topk,
+                    cfg.locate.min_size as f32,
+                    cfg.locate
+                        .anchors_wh
+                        .as_ref()
+                        .map(|v| v.iter().map(|p| (p[0] as f32, p[1] as f32)).collect()),
+                )?));
+            }
+            #[cfg(not(feature = "aidlite"))]
+            bail!("locate.type=aidlite 需要以 --features aidlite 构建");
+        } else if cfg.locate.kind == "rknn" {
             #[cfg(feature = "rknn")]
             {
                 if !Path::new(path).exists() {

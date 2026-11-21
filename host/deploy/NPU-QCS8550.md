@@ -147,6 +147,27 @@ cd /tmp/aidlite_qnn248/python && python3 qnn_yolov5_multi.py
 2. **我们的 RPN 可以走 AidLite ONNX 后端**（静态模型 12.96 ms CPU）；真实权重需用 `export_onnx.py --rpn-static` 重新导出静态版（动态 batch 不被 AidLite 接受）；
 3. **我们的 RPN 上 NPU 的阻塞点仍是 `.ctx.bin` 转换**（板端无转换工具，需 x86_64 Linux + QNN SDK）。
 
+## 2.8 软件接入：AidLite 后端（已实现）
+
+Rust 侧新增 `aidlite` feature（`host/crates/infer/src/aidlite.rs`）：常驻 Python 子进程
+（`scripts/aidlite_server.py`，二进制协议），`locate.type=aidlite`，预处理/解码/NMS 与 ONNX 路径共用。
+
+```bash
+# 板端构建
+cd host
+cargo build --release -p glue-cli --features aidlite
+cargo build --release -p glue-agent --features aidlite
+cargo build --release -p glue-app --features aidlite
+
+# 单帧 / 批量耗时对比（对照：configs/experiments/demo-rpn.yaml 用 tract）
+cd ..
+./host/target/release/glue-cli bench --config configs/experiments/demo-aidlite.yaml \
+    --input outputs/rust_samples --iters 20
+```
+
+预期：AidLite ONNX CPU 的 locate 从 tract 的约 24 ms 降到约 14–16 ms（含 IPC/解码/NMS，需实测）。
+环境变量：`GLUE_AIDLITE_ACCEL=cpu|gpu`、`GLUE_AIDLITE_CMD` 可覆盖默认命令。
+
 ## 3. 三条可选路线
 
 ### A. AidLite（AidLux 自带，最快）

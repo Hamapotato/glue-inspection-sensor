@@ -162,3 +162,21 @@ sha256sum outputs/demo/onnx/rpn-static.onnx   # 应为 fb84b4e24e555afe...
 ```
 
 预期：`top0 score≈0.9997`，框覆盖胶条（y≈420~540，x 在画面内）。
+
+## 9. 软件接入后的耗时实测（AidLite 后端 vs tract）
+
+```bash
+cd "$REPO"
+# 构建带 AidLite 后端的 CLI（板端）
+cd host && cargo build --release -p glue-cli --features aidlite && cd ..
+
+# AidLite 后端
+./host/target/release/glue-cli bench --config configs/experiments/demo-aidlite.yaml \
+    --input outputs/rust_samples --iters 20 2>&1 | tee /tmp/aidlite_test/D_bench_aidlite.log
+
+# 对照：tract/ONNX 后端
+./host/target/release/glue-cli bench --config configs/experiments/demo-rpn.yaml \
+    --input outputs/rust_samples --iters 20 2>&1 | tee /tmp/aidlite_test/D_bench_tract.log
+```
+
+记录两次的 p50/p95（整帧）与吞吐；如 AidLite 后端报错，记录原始错误（常见：`aidlite` 包路径、模型不存在、协议错误）。
