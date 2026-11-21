@@ -88,6 +88,18 @@ nm -D --defined-only /usr/local/lib/libaidlite.so 2>/dev/null | head -40
 
 仍待确认（决定"板端能否直接转 NPU 模型"）：
 
+## 2.4 第三批结论（2026-11-22）
+
+| 项 | 结论 |
+| --- | --- |
+| Python API | 确认：`Config/Model/InterpreterBuilder.build_interpreter_from_model_and_config` → `init/load_model` → `set_input_tensor(name_to_index(...))` → `invoke` → `get_output_tensor(name_to_index(...), TYPE_FLOAT32)` → `destroy` |
+| QNN 运行时 | 板端 `qairt/qnn236|qnn240|qnn248` 目录下是完整运行时（含 `libQnnHtpV73Skel.so` 等），**可直接跑 `.ctx.bin`** |
+| 板端转换工具 | ❌ 未发现：`oma` 是运维代理（Operation Maintenance Agent），`aidgen` 是 LLM 组件（t2t/t2e），qairt 目录只有运行时 |
+| ONNX → ctx.bin | 需要 x86_64 Linux + QNN SDK（qairt-converter / qnn-context-binary-generator），或 AidLux 提供的在线转换服务 |
+| AidLite ONNX 后端 | ✅ 可直接跑 `rpn-static.onnx`（CPU/GPU），用于先验证 API 与模型 |
+
+新增验证脚本：`scripts/aidlite_rpn_test.py`（板端运行，打印张量信息、单帧耗时与解码后的前 5 个 RoI）。
+
 ## 3. 三条可选路线
 
 ### A. AidLite（AidLux 自带，最快）
