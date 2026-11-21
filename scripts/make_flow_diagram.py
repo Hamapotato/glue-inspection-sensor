@@ -1,15 +1,20 @@
-"""生成算法流程框图（docs/algo/figures/algorithm-pipeline.png）。
+"""生成算法流程框图（默认 docs/algo/figures/algorithm-pipeline.png；--timing 生成带耗时版）。
 
 只做绘图，不含算法逻辑。颜色编码实现状态：
     绿色 = 已实现并有单元测试
     橙色 = 代码就绪、尚未验证
     蓝色 = 输入 / 输出
+红色文字 = 板端实测耗时（p50 / p95，20 张样例，commit e09418b）。
+
 用法：
     py -3 scripts/make_flow_diagram.py
+    py -3 scripts/make_flow_diagram.py --timing
+    py -3 scripts/make_flow_diagram.py --timing --out docs/algo/figures/algorithm-pipeline-timing.png
 """
 
 from __future__ import annotations
 
+import argparse
 from pathlib import Path
 
 import matplotlib
@@ -20,12 +25,13 @@ from matplotlib.patches import FancyArrowPatch, FancyBboxPatch
 plt.rcParams["font.sans-serif"] = ["Microsoft YaHei", "SimHei"]
 plt.rcParams["axes.unicode_minus"] = False
 
-OUT = Path("docs/algo/figures/algorithm-pipeline.png")
+DEFAULT_OUT = Path("docs/algo/figures/algorithm-pipeline.png")
 
 DONE = ("#e8f5e9", "#2e7d32")   # 已实现
 WIP = ("#fff8e1", "#ef6c00")    # 就绪未验证
 IO = ("#e3f2fd", "#1565c0")     # 输入输出
 RAIL = "#90a4ae"
+TIMING = "#c62828"              # 实测耗时标注
 
 
 def box(ax, x, y, w, h, text, kind=DONE, fontsize=12):
@@ -56,13 +62,17 @@ def stage_rail(ax, stages):
         ax.text(6.6, y, label, ha="right", va="center", fontsize=9, color="#546e7a")
 
 
-def main() -> int:
-    fig, ax = plt.subplots(figsize=(13.5, 10), dpi=150)
+def timing_text(ax, x, y, text, fontsize=9.2):
+    ax.text(x, y, text, ha="center", va="center", fontsize=fontsize, color=TIMING,
+            zorder=4, bbox=dict(boxstyle="round,pad=0.3", facecolor="#fff3f3",
+                                edgecolor="#ef9a9a", linewidth=0.8))
+
+
+def draw(ax, timing: bool = False):
     ax.set_xlim(0, 100)
-    ax.set_ylim(-9, 101)
+    ax.set_ylim(-9, 104)
     ax.axis("off")
 
-    # 阶段标注
     stage_rail(ax, [
         ("输入", 95),
         ("定位", 78.5),
@@ -76,7 +86,10 @@ def main() -> int:
     box(ax, 52, 95, 60, 6.4, "输入：工业相机图像 1280×960（3 相机 / 24V 硬触发）", IO, 12.5)
 
     # ② 定位
-    box(ax, 52, 84, 58, 7.0, "B1  RoI 自动定位\nRPN + K-means 先验框 + DIoU 损失 + CIoU-NMS", WIP, 11.3)
+    b1_text = "B1  RoI 自动定位\nRPN + K-means 先验框 + DIoU 损失 + CIoU-NMS"
+    if timing:
+        b1_text += "\nRPN 实测 p50 23.81 / p95 54.28 ms（启发式 6.41 / 12.10）"
+    box(ax, 52, 84, 62, 8.2 if timing else 7.0, b1_text, WIP, 10.0 if timing else 11.3)
     box(ax, 52, 73, 58, 6.0, "RoI 裁剪", DONE, 12)
 
     # ③ 预处理
@@ -101,7 +114,7 @@ def main() -> int:
     box(ax, 52, 11, 60, 6.4, "输出：结果 JSON ｜ 报警信号 ｜ 数据库留档 / 报表", IO, 12)
 
     # ---------------- 箭头 ----------------
-    arrow(ax, 52, 91.8, 52, 87.5)        # 输入 → B1
+    arrow(ax, 52, 91.8, 52, 88.1)        # 输入 → B1
     arrow(ax, 52, 80.5, 52, 76.0)        # B1 → 裁剪
     arrow(ax, 46, 70.0, 22, 64.2)        # 裁剪 → 去噪
     arrow(ax, 52, 70.0, 52, 64.2)        # 裁剪 → Otsu
@@ -117,6 +130,23 @@ def main() -> int:
     arrow(ax, 34, 20.5, 42, 14.2)        # 判定 → 输出
     arrow(ax, 80, 20.5, 62, 14.2)        # 反光复判 → 输出
 
+    if timing:
+        timing_text(
+            ax, 52, 101.4,
+            "质量门控（前置，工程新增）：p50 3.06 / p95 9.05 ms ｜ 不通过则整帧短路（约 3 ms）",
+            fontsize=8.6,
+        )
+        timing_text(
+            ax, 52, 29.6,
+            "量测组（裁剪 + 预处理 + BFS/骨架）：p50 4.56 / p95 13.72 ms（与定位方式无关）",
+            fontsize=8.4,
+        )
+        timing_text(
+            ax, 52, 3.2,
+            "整帧：RPN p50 31.87 / p95 62.65 ms ｜ 启发式 p50 10.61 / p95 25.85 ms ｜ 相机 10 fps = 100 ms/帧",
+            fontsize=8.4,
+        )
+
     # 图例
     items = [
         ("已实现并有测试", DONE, "-"),
@@ -130,12 +160,25 @@ def main() -> int:
                                    edgecolor=edge, linewidth=1.4, linestyle=ls))
         ax.text(x + 3.9, -4.2, label, fontsize=9, va="center", color="#37474f")
 
-    ax.set_title("涂胶检测算法流程与实现状态", fontsize=16, weight="bold", pad=14, color="#212121")
+    title = "涂胶检测算法流程与实现状态" if not timing else "涂胶检测算法流程与板端实测耗时"
+    ax.set_title(title, fontsize=16, weight="bold", pad=14, color="#212121")
 
-    OUT.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(OUT, bbox_inches="tight", facecolor="white")
+
+def main() -> int:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--timing", action="store_true", help="在框图上标注板端实测耗时")
+    ap.add_argument("--out", default=None, help="输出路径（默认按是否 timing 决定）")
+    args = ap.parse_args()
+
+    fig, ax = plt.subplots(figsize=(13.5, 10), dpi=150)
+    draw(ax, timing=args.timing)
+    out = Path(args.out) if args.out else (
+        Path("docs/algo/figures/algorithm-pipeline-timing.png") if args.timing else DEFAULT_OUT
+    )
+    out.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(out, bbox_inches="tight", facecolor="white")
     plt.close(fig)
-    print(f"saved {OUT}")
+    print(f"saved {out}")
     return 0
 
 
