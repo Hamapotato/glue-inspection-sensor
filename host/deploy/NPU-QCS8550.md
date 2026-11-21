@@ -34,6 +34,48 @@ getprop ro.soc.model 2>/dev/null
 
 把输出发我，可直接判断走哪条路线。
 
+## 2.1 板端探测结果（2026-11-22，板端实测）
+
+| 检查项 | 结果 |
+| --- | --- |
+| 架构 | aarch64 |
+| AidLite Python | ✅ `/usr/local/lib/python3.10/dist-packages/aidlite`，SDK V2.5.1.304（ABI 0x2050100） |
+| QNN 运行库 | ✅ `/vendor/lib64/libQnnHtp.so`、`libQnnHtpV73Stub.so`、`libQnnSystem.so` |
+| HTP 架构 | V73（对应 QCS8550；V75/V79 也在） |
+| AidLite 后端 | `qnn231 / qnn236 / qnn240 / qnn248 / snpe229 / onnx / tflite`（`/usr/local/lib/libaidlite_*.so`） |
+| DSP/NPU 通路 | ✅ `libcdsprpc.so`、`adsprpc-smd`、`kgsl-3d0` |
+| SNPE Python | ❌ 未安装（不需要，AidLite 内部有 snpe229 后端） |
+
+AidLite 示例（`/usr/local/share/aidlite/examples/`）：
+
+| 示例 | 模型格式 |
+| --- | --- |
+| `aidlite_onnx` | `.onnx`（CPU/GPU 后端） |
+| `aidlite_qnn231` / `qnn248` | `.ctx.bin`（QNN context binary，NPU） |
+| `aidlite_snpe229` | SNPE `.dlc` |
+| `aidlite_tflite` | `.tflite` |
+
+结论：**AidLite 路线可行**；NPU 需要 QNN `.ctx.bin` 模型（示例里是预编译的 yolov5），
+ONNX 直接走 AidLite 是 CPU/GPU 后端，不是 NPU。
+
+## 2.2 下一步需要确认（板端执行后回传）
+
+```bash
+sed -n '1,160p' /usr/local/share/aidlite/examples/aidlite_onnx/python/onnx_yolov5_multi.py
+sed -n '1,120p' /usr/local/share/aidlite/examples/aidlite_qnn248/python/qnn_yolov5_multi.py
+cat /usr/local/share/aidlite/examples/aidlite_onnx/Readme.txt
+cat /usr/local/share/aidlite/examples/aidlite_qnn248/Readme.txt
+ls /usr/local/bin | head -50
+find / -maxdepth 6 \( -iname '*qairt*' -o -iname '*qnn*converter*' -o -iname '*aidgen*' \) 2>/dev/null | head -20
+nm -D --defined-only /usr/local/lib/libaidlite.so 2>/dev/null | head -40
+```
+
+重点确认：
+1. AidLite Python API 的调用顺序（构造 → init → set_input → run → get_output）；
+2. 输入布局与数值范围（NCHW/NHWC、0-255 还是 0-1）；
+3. **是否有本机 ONNX → QNN `.ctx.bin` 的转换工具**（`aidgen`/`qairt-converter`），
+   若没有，则 NPU 模型需在 x86_64 Linux + QNN SDK 上转换。
+
 ## 3. 三条可选路线
 
 ### A. AidLite（AidLux 自带，最快）
