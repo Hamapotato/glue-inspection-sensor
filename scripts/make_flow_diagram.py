@@ -207,7 +207,6 @@ def draw_simple_timing(ax):
 
     ax.text(46, -4.2, "红色：板端实测 p50 / p95（20 张样例，commit e09418b）",
             ha="center", va="center", fontsize=9.2, color="#546e7a")
-    ax.set_title("涂胶检测算法各阶段耗时（简化流程）", fontsize=16, weight="bold", pad=14, color="#212121")
 
 
 def main() -> int:
