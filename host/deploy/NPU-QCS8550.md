@@ -100,6 +100,38 @@ nm -D --defined-only /usr/local/lib/libaidlite.so 2>/dev/null | head -40
 
 新增验证脚本：`scripts/aidlite_rpn_test.py`（板端运行，打印张量信息、单帧耗时与解码后的前 5 个 RoI）。
 
+## 2.5 与 RK3588 的关系（澄清 GPU/NPU）
+
+| 平台 | GPU | NPU | 说明 |
+| --- | --- | --- | --- |
+| RK3588 | **有**：ARM Mali-G610 MP4（OpenGL ES 3.2 / OpenCL 2.2 / Vulkan 1.2） | 6 TOPS，RKNN 工具链 | "RK3588 没有 GPU"是误解；只是没有 CUDA，GPU 用 OpenCL/Vulkan/GL |
+| QCS8550（FV04） | Adreno 740（OpenCL/Vulkan） | Hexagon HTP V73，SNPE/QNN/AidLite | 本板当前用于验证 NPU 可行性与软件链路 |
+
+结论：
+1. 本板（QCS8550）验证的是 **"NPU 推理链路可行 + 软件架构可复用"**；
+2. 迁移到 RK3588 时，模型转换/运行库换成 RKNN（仓库已有 `rknn` feature 备用），
+   `ObjectDetector` 接口、相机链路、判定逻辑、配置形态都不变；
+3. 两块板的 GPU 都可用，但本项目实时性瓶颈在推理，GPU 不是主路径。
+
+## 2.6 NPU 可行性验证实验（官方模型，CPU vs GPU vs NPU）
+
+板端自带同一 YOLOv5 的 ONNX 与 QNN ctx.bin 示例，可直接对比：
+
+```bash
+# CPU / GPU（AidLite ONNX 后端）
+cd /usr/local/share/aidlite/examples/aidlite_onnx/python
+python3 onnx_yolov5_multi.py --cpu    # 若脚本支持参数；否则按 Readme 调用
+python3 onnx_yolov5_multi.py --gpu
+
+# NPU（AidLite QNN248 后端，ctx.bin）
+cp -r /usr/local/share/aidlite/examples/aidlite_qnn248 /tmp/
+cd /tmp/aidlite_qnn248/python && python3 qnn_yolov5_multi.py
+```
+
+记录每个示例打印的 `invoke cost time`（单位 ms），即可得到本板
+"CPU / GPU / NPU" 的推理耗时对比——这是"NPU 是否可行"的直接证据。
+（注意：不同模型/输入尺寸不能直接比，必须是同一模型。）
+
 ## 3. 三条可选路线
 
 ### A. AidLite（AidLux 自带，最快）
