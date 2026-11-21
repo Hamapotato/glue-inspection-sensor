@@ -93,6 +93,13 @@ def main() -> int:
     except Exception as e:  # noqa: BLE001
         print(f"[WARN] anchors.json 未下载（{e}）；若配置里已写死 anchors_wh 可忽略", file=sys.stderr)
 
+    # 静态 batch ONNX（RKNN 转换用）；构建机没有时忽略
+    static_url = (onnx_url.rsplit("/", 1)[0] + "/rpn-static.onnx") if is_file_url else (base + "/onnx/rpn-static.onnx")
+    try:
+        fetch(static_url, dst / "onnx" / "rpn-static.onnx")
+    except Exception as e:  # noqa: BLE001
+        print(f"[WARN] rpn-static.onnx 未下载（{e}）；RKNN 转换前需在构建机执行 export_onnx.py --rpn-static", file=sys.stderr)
+
     print("\n完成。下一步：")
     print("  cd host && cargo build --release -p glue-agent --features infer")
     print("  cd .. && ./host/target/release/glue-agent --config configs/experiments/camera-rpn.yaml \\")

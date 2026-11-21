@@ -51,13 +51,13 @@ class YOLOExport(nn.Module):
         return torch.cat([o.reshape(o.shape[0], -1, self.per) for o in outs], dim=1)
 
 
-def export_rpn(out_dir: Path, weights: Path | None, img: int = 320) -> dict:
+def export_rpn(out_dir: Path, weights: Path | None, img: int = 320, static: bool = False) -> dict:
     model = RPN(RPNConfig()).eval()
     if weights and weights.exists():
         model = RPN.load(weights)
     wrapper = RPNExport(model).eval()
     dummy = torch.randn(1, 1, img, img)
-    onnx_path = out_dir / "rpn.onnx"
+    onnx_path = out_dir / ("rpn-static.onnx" if static else "rpn.onnx")
     with torch.no_grad():
         torch.onnx.export(
             wrapper,
@@ -65,7 +65,8 @@ def export_rpn(out_dir: Path, weights: Path | None, img: int = 320) -> dict:
             str(onnx_path),
             input_names=["image"],
             output_names=["cls", "reg"],
-            dynamic_axes={"image": {0: "batch"}, "cls": {0: "batch"}, "reg": {0: "batch"}},
+            # RKNN 转换要求静态 batch：--rpn-static 时不导出动态维
+            dynamic_axes=None if static else {"image": {0: "batch"}, "cls": {0: "batch"}, "reg": {0: "batch"}},
             opset_version=17,
             do_constant_folding=True,
         )
@@ -120,6 +121,7 @@ def main() -> int:
     ap.add_argument("--out", default=str(ROOT / "outputs" / "onnx"))
     ap.add_argument("--rpn-weights", default=None)
     ap.add_argument("--yolo-weights", default=None)
+    ap.add_argument("--rpn-static", action="store_true", help="RPN 导出静态 batch（RKNN 转换用）")
     args = ap.parse_args()
 
     out_dir = Path(args.out)
@@ -128,11 +130,13 @@ def main() -> int:
     import onnx
 
     results = []
-    for name, fn, weights in [
-        ("rpn", export_rpn, args.rpn_weights),
-        ("yolo5fl", export_yolo, args.yolo_weights),
-    ]:
-        job = fn(out_dir, Path(weights) if weights else None)
+    jobs = [
+        ("rpn", lambda: export_rpn(out_dir, Path(args.rpn_weights) if args.rpn_weights else None,
+                                   static=args.rpn_static)),
+        ("yolo5fl", lambda: export_yolo(out_dir, Path(args.yolo_weights) if args.yolo_weights else None)),
+    ]
+    for name, fn in jobs:
+        job = fn()
         model = onnx.load(str(job["path"]))
         onnx.checker.check_model(model)
         # 默认导出会写 .onnx.data 外部权重；这里内联成单文件，便于交付与端侧加载

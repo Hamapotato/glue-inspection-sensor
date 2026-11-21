@@ -109,6 +109,8 @@ cargo build --release -p glue-agent --features infer
 
 > 注意：当前仓库未包含 `.rknn` 产物，也未在真实板端实测性能；转换与验证需在 x86 Linux + 板端分别执行。
 
+**前置工作清单**：[deploy/RKNN-CHECKLIST.md](deploy/RKNN-CHECKLIST.md)（静态 ONNX、转换/验证脚本、`rknn_preflight.py` 检查项、当前外部缺口与执行顺序）。
+
 ## 4.3 相机（海康 MVS / USB3 Vision）
 
 - 步骤、udev、脚本与排障见 [deploy/CAMERA-MVS.md](deploy/CAMERA-MVS.md)；

@@ -76,7 +76,7 @@ def collect_images(dataset_dir: Path, samples_dir: Path) -> list[Path]:
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--onnx", default=str(ROOT / "outputs" / "demo" / "onnx" / "rpn.onnx"))
+    ap.add_argument("--onnx", default=str(ROOT / "outputs" / "demo" / "onnx" / "rpn-static.onnx"))
     ap.add_argument("--out", default=str(ROOT / "outputs" / "demo" / "rknn" / "rpn.rknn"))
     ap.add_argument("--dataset", default=str(ROOT / "outputs" / "demo_dataset" / "train"))
     ap.add_argument("--samples", default=str(ROOT / "outputs" / "rust_samples"))
@@ -92,6 +92,22 @@ def main() -> int:
         print(f"[ERROR] 找不到 ONNX：{onnx}", file=sys.stderr)
         print("        请先生成演示权重：scripts/build-demo-weights.ps1（或手动训练+导出）", file=sys.stderr)
         return 2
+
+    # 前置检查：RKNN 转换要求静态输入；动态 batch 的 ONNX 会直接失败
+    try:
+        import onnx  # type: ignore
+
+        model = onnx.load(str(onnx))
+        dims = model.graph.input[0].type.tensor_type.shape.dim
+        shape = [d.dim_value for d in dims]
+        ops = sorted({n.op_type for n in model.graph.node})
+        print(f"== ONNX 输入 {shape}，算子 {ops}")
+        if any(d.dim_value <= 0 for d in dims):
+            print("[ERROR] ONNX 含动态维，RKNN 转换要求静态 batch。", file=sys.stderr)
+            print("        请先导出静态版本：python3 scripts/export_onnx.py --rpn-weights <weights> --rpn-static", file=sys.stderr)
+            return 2
+    except ImportError:
+        print("[WARN] 未安装 onnx，跳过静态形状检查", file=sys.stderr)
 
     images = collect_images(Path(args.dataset), Path(args.samples))
     if not images:

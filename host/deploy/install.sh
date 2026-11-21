@@ -33,6 +33,7 @@ fi
 cp -f "$SRC/deploy/verify.sh" "$PREFIX/verify.sh" 2>/dev/null || true
 cp -f "$SRC/README.txt" "$PREFIX/README.txt" 2>/dev/null || true
 cp -f "$SRC/deploy/CAMERA-MVS.md" "$PREFIX/CAMERA-MVS.md" 2>/dev/null || true
+cp -f "$SRC/deploy/RKNN-CHECKLIST.md" "$PREFIX/RKNN-CHECKLIST.md" 2>/dev/null || true
 chmod +x "$PREFIX/verify.sh" 2>/dev/null || true
 
 echo "[3/4] 创建系统用户 glue（已存在则跳过）"
