@@ -76,6 +76,18 @@ nm -D --defined-only /usr/local/lib/libaidlite.so 2>/dev/null | head -40
 3. **是否有本机 ONNX → QNN `.ctx.bin` 的转换工具**（`aidgen`/`qairt-converter`），
    若没有，则 NPU 模型需在 x86_64 Linux + QNN SDK 上转换。
 
+## 2.3 进一步确认（2026-11-22 第二批）
+
+| 发现 | 含义 |
+| --- | --- |
+| `aidlite` C++ API：`Aidlux::Aidlite::Interpreter`（init/load_model/set_input_tensor/invoke/get_output_tensor） | 运行时 API 明确；Python 为其绑定 |
+| `/usr/local/include/aidlux/aidgen/aidgen.hpp` + `libaidgen*.so` | AidLux 自带 **aidgen** 模型生成/转换组件（疑似 ONNX→QNN 转换能力） |
+| `/usr/local/lib/aidlux/qairt` | 板端自带 **QAIRT/QNN** 组件目录 |
+| `/usr/local/bin/oma` | AidLux 的模型工具 CLI（需 `oma --help` 确认功能） |
+| `libaidlite_qnn248.so` / `qnn231` / `snpe229` | AidLite 已有 QNN HTP 后端 |
+
+仍待确认（决定"板端能否直接转 NPU 模型"）：
+
 ## 3. 三条可选路线
 
 ### A. AidLite（AidLux 自带，最快）
