@@ -79,6 +79,26 @@ cd /opt/glue     # 或仓库根目录
 ./bin/glue-agent --config configs/experiments/camera-synthetic.yaml --camera --frames 5 --state /tmp/syn.jsonl
 ```
 
+## 4.1 结合 ROI 推理（可选）
+
+相机帧可以直接走 RPN 推理定位，而不是启发式定位：
+
+| 路线 | 配置 | 构建要求 |
+| --- | --- | --- |
+| CPU（ONNX / tract） | `configs/experiments/camera-rpn.yaml` | 板端原生 `cargo build --release -p glue-agent --features infer`；GUI 默认已编入 |
+| NPU（RKNN） | `configs/experiments/camera-rknn.yaml` | 先按 `docs/algo/reports/npu-rknn.md` 转换出 `.rknn`，再 `--features rknn` 构建 |
+
+```bash
+# CPU 推理 + 相机
+cd /opt/glue
+./bin/glue-agent --config configs/experiments/camera-rpn.yaml \
+    --camera --frames 100 --mm-per-px 0.0833 --state logs/camera.jsonl
+```
+
+前提：`outputs/demo/onnx/rpn.onnx` 与 `anchors_wh` 放在板端可访问路径（配置里的路径相对运行目录）。
+
+> 注意：当前仓库的演示权重是**合成数据**训练的，真实相机图像分布不同，定位效果需要真实数据重新训练/微调后再评估；没有真实数据前，不要把演示权重的检测结果当成现场精度。
+
 ## 5. 常见问题
 
 | 现象 | 处理 |

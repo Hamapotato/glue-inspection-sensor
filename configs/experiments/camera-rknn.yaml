@@ -1,0 +1,17 @@
+# 相机 + RPN ROI 推理（RK3588 NPU，需先转换出 outputs/demo/rknn/rpn.rknn 并以 --features rknn 构建）
+camera:
+  enabled: true
+  source: command
+  command: "python3 scripts/camera_mvs.py --device 0 --fps 10"
+locate:
+  enabled: true
+  type: rknn
+  weights: outputs/demo/rknn/rpn.rknn
+  input_size: 320
+  score_thr: 0.95
+  pre_topk: 1000
+  post_topk: 300
+  min_size: 8.0
+  anchors_wh: [[142.5, 30.0], [142.5, 30.0], [142.5, 30.0], [300.0, 15.0], [300.0, 30.0], [300.0, 30.0], [300.0, 45.0], [300.0, 45.0], [300.0, 45.0]]
+reflect:
+  enabled: false
