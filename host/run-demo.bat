@@ -10,10 +10,17 @@ if not exist "host\target\release\glue-app.exe" (
   exit /b 1
 )
 if not exist "outputs\demo\onnx\rpn.onnx" (
-  echo [ERROR] 缺少演示权重 outputs\demo\onnx\rpn.onnx（权重不入库）
-  echo         方式 A：在构建机上生成：powershell -ExecutionPolicy Bypass -File scripts\build-demo-weights.ps1
-  echo         方式 B：从构建机 HTTP 下载到本目录：wget http://^<构建机IP^>:8000/onnx/rpn.onnx
-  exit /b 1
+  echo [WARN] 缺少演示权重 outputs\demo\onnx\rpn.onnx（权重不入库，git pull 不会带来）
+  if defined GLUE_DEMO_WEIGHTS_URL (
+    echo [demo] 从 %GLUE_DEMO_WEIGHTS_URL% 下载权重...
+    python scripts\fetch_demo_weights.py --url %GLUE_DEMO_WEIGHTS_URL% || exit /b 1
+  ) else (
+    echo         方式 A：从构建机下载后启动：
+    echo            set GLUE_DEMO_WEIGHTS_URL=http://^<构建机IP^>:8000
+    echo            host\run-demo.bat
+    echo         方式 B：在构建机生成：powershell -ExecutionPolicy Bypass -File scripts\build-demo-weights.ps1
+    exit /b 1
+  )
 )
 
 set "GLUE_CONFIG=configs\experiments\demo-rpn.yaml"

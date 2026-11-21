@@ -103,16 +103,21 @@ cd /opt/glue
 
 模型权重与 `outputs/` 全部在 `.gitignore` 里，**clone 仓库后不会有**，需要从构建机传输：
 
-```bash
-# 构建机（Windows）在仓库根目录：
-py -3 -m http.server 8000 --directory outputs\demo
-# 记住构建机局域网 IP（如 10.22.20.247）
+权重不在 git 里（红线 R4），`git pull` 之后用仓库自带脚本取回：
 
-# 板端：
-mkdir -p outputs/demo/onnx
-wget -O outputs/demo/onnx/rpn.onnx http://<构建机IP>:8000/onnx/rpn.onnx
-wget -O outputs/demo/anchors.json     http://<构建机IP>:8000/anchors.json
-sha256sum outputs/demo/onnx/rpn.onnx  # 与构建机一致
+```bash
+# 构建机（Windows，仓库根目录）起 HTTP：
+py -3 -m http.server 8000 --directory outputs\demo
+
+# 板端（仓库根目录）：
+python3 scripts/fetch_demo_weights.py --url http://<构建机IP>:8000
+# 会自动下载 outputs/demo/onnx/rpn.onnx 与 anchors.json，并打印校验值与下一步命令
+```
+
+也可以给 `run-demo.sh` 传环境变量自动拉取：
+
+```bash
+GLUE_DEMO_WEIGHTS_URL=http://<构建机IP>:8000 host/run-demo.sh
 ```
 
 构建机上的 SHA256：`F85CC1E3B13A8D936B980F159709EE2B55CA3B6CADFE655627418D822C492C91`
