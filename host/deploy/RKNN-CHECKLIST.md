@@ -1,5 +1,7 @@
 # RKNN NPU 验证：前置工作清单
 
+> 适用：**RK3588（Rockchip）**。当前主控为 Qualcomm QCS8550 的板子请看 [NPU-QCS8550.md](NPU-QCS8550.md)；本清单仅作备用。
+
 > 目标：把 RPN 从 CPU（ONNX/tract）切到 RK3588 NPU（RKNN）。
 > 当前状态：**软件侧前置工作已完成；转换与板端实测受外部环境阻塞**（缺 x86_64 Linux 转换环境、板端缺 `librknnrt.so`）。
 

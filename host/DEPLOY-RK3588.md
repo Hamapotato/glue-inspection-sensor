@@ -85,7 +85,7 @@ cargo build --release -p glue-agent --features infer
 - 需要把训练导出的 ONNX 放到板端，并在配置里设置 `locate.enabled/weights/anchors_wh`（参考 `configs/experiments/demo-rpn.yaml`）；
 - 当前演示权重是合成数据训练的，仅用于链路展示。
 
-## 4.2 RK3588 NPU（RKNN，可选）
+## 4.2 RK3588 NPU（RKNN，可选；若板子是 QCS8550 请见 [deploy/NPU-QCS8550.md](deploy/NPU-QCS8550.md)）
 
 1. **转换（x86_64 Linux，不是板端）**：
    ```bash
