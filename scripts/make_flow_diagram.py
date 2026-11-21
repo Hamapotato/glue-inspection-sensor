@@ -164,17 +164,70 @@ def draw(ax, timing: bool = False):
     ax.set_title(title, fontsize=16, weight="bold", pad=14, color="#212121")
 
 
+
+def draw_simple_timing(ax):
+    """简化流程 + 耗时：隐藏算法细节，只保留阶段和实测耗时（便于汇报）。"""
+    ax.set_xlim(0, 120)
+    ax.set_ylim(0, 101)
+    ax.axis("off")
+
+    stages = [("输入", 92), ("门控", 80), ("定位", 64), ("量测", 44), ("判定", 26), ("输出", 12)]
+    for label, y in stages:
+        ax.text(8, y, label, ha="right", va="center", fontsize=11, color="#546e7a")
+    ax.plot([10, 10], [10, 94], color=RAIL, lw=1.2, zorder=0)
+
+    boxes = [
+        (92, "输入：相机灰度图像（1440×1080 Mono8）", IO),
+        (80, "质量门控（工程前置）\n暗 / 过曝 / 模糊 / 对比度不足 → NO_QUALITY", DONE),
+        (64, "ROI 定位\nRPN（K-means 先验框 + NMS） 或 启发式（Otsu + 形态学）", DONE),
+        (44, "ROI 裁剪 → 预处理 → 量测\n分割/形态学 → 面积 & 骨架 → 平均宽度", DONE),
+        (26, "缺陷判定\n断胶（RoI 数 > 1）｜ 过宽 / 过窄 ｜ 无法判定", DONE),
+        (12, "输出：结果 JSON ｜ 报警信号 ｜ 记录", IO),
+    ]
+    for y, text, kind in boxes:
+        box(ax, 46, y, 54, 7.2, text, kind, 10.6)
+        ax.plot([10], [y], marker="o", markersize=4.5, color=RAIL, zorder=1)
+
+    for y in (92, 80, 64, 44, 26):
+        arrow(ax, 46, y - 3.7, 46, y - 8.4)
+
+    timing = [
+        (80, "3.06 / 9.05 ms\n（不通过则整帧短路 ≈3 ms）"),
+        (64, "RPN 23.81 / 54.28 ms\n启发式 6.41 / 12.10 ms"),
+        (44, "4.56 / 13.72 ms"),
+        (26, "—（含在整帧内）"),
+    ]
+    for y, text in timing:
+        timing_text(ax, 99, y, text, fontsize=9.0)
+
+    ax.text(46, 2.5,
+            "整帧：RPN p50 31.87 / p95 62.65 ms ｜ 启发式 p50 10.61 / p95 25.85 ms",
+            ha="center", va="center", fontsize=10.2, color=TIMING,
+            bbox=dict(boxstyle="round,pad=0.4", facecolor="#fff3f3", edgecolor="#ef9a9a"))
+
+    ax.text(46, -4.2, "红色：板端实测 p50 / p95（20 张样例，commit e09418b）",
+            ha="center", va="center", fontsize=9.2, color="#546e7a")
+    ax.set_title("涂胶检测算法各阶段耗时（简化流程）", fontsize=16, weight="bold", pad=14, color="#212121")
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--timing", action="store_true", help="在框图上标注板端实测耗时")
-    ap.add_argument("--out", default=None, help="输出路径（默认按是否 timing 决定）")
+    ap.add_argument("--simple", action="store_true", help="简化流程（隐藏算法细节，突出耗时）")
+    ap.add_argument("--out", default=None, help="输出路径（默认按模式决定）")
     args = ap.parse_args()
 
-    fig, ax = plt.subplots(figsize=(13.5, 10), dpi=150)
-    draw(ax, timing=args.timing)
-    out = Path(args.out) if args.out else (
-        Path("docs/project/figures/algorithm-pipeline-timing.png") if args.timing else DEFAULT_OUT
-    )
+    if args.simple:
+        fig, ax = plt.subplots(figsize=(12.5, 8.5), dpi=150)
+        draw_simple_timing(ax)
+        default_out = Path("docs/project/figures/algorithm-pipeline-timing-simple.png")
+    else:
+        fig, ax = plt.subplots(figsize=(13.5, 10), dpi=150)
+        draw(ax, timing=args.timing)
+        default_out = (
+            Path("docs/project/figures/algorithm-pipeline-timing.png") if args.timing else DEFAULT_OUT
+        )
+    out = Path(args.out) if args.out else default_out
     out.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(out, bbox_inches="tight", facecolor="white")
     plt.close(fig)
