@@ -125,6 +125,24 @@ GLUE_DEMO_WEIGHTS_URL=http://<构建机IP>:8000 host/run-demo.sh
 
 也可以把 `best.pt` 一起拷走，再用本仓库脚本重新导出 ONNX。
 
+## 4.3 曝光调整（画面过曝 → NO_QUALITY）
+
+相机默认关闭自动曝光/自动增益（`ExposureAuto=Off`、`GainAuto=Off`），避免帧间亮度跳变；
+但曝光值本身不合适仍会过曝，表现为质量门控判 `NO_QUALITY`（饱和像素比例 >30%）。
+
+先用统计模式调曝光（目标：`mean 80~180`、`sat(>=250) < 5%`）：
+
+```bash
+python3 scripts/camera_mvs.py --fps 10 --exposure-us 3000 --stats
+# 观察 stderr 中的 mean/sat，逐步降低/提高 --exposure-us（如 1000/2000/3000/5000）
+# 调好后用固定曝光进软件：
+./bin/glue-agent --config configs/experiments/camera-rpn.yaml --camera --frames 100 --mm-per-px 0.0833 --state logs/camera.jsonl
+```
+
+- 自动曝光会随视场亮度变化，**不建议现场长期用 continuous**；可先用 `--auto-exposure continuous` 看稳定值，再改固定 `--exposure-us`；
+- 画面过曝时 `NO_QUALITY` 是**正确行为**（质量门控短路，不进入定位/量测），不是软件 bug；
+- 调好曝光后再验证 RPN 实时帧（此前实时帧被门控短路，`locate_ms=0`）。
+
 ## 5. 常见问题
 
 | 现象 | 处理 |
