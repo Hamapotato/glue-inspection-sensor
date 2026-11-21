@@ -30,6 +30,7 @@
 |---|---|
 | [产品开发路线](project/product-development-roadmap.md) | 从论文装置到 RK3588 工程样机和产品化的开发路线 |
 | [导师汇报摘要](project/mentor-report-summary.md) | 项目总体方案、阶段安排和汇报重点 |
+| [相机接入与 ROI 推理验证报告](project/camera-infer-verification-2026-11-22.md) | 板端相机链路、RPN 推理接入与算法耗时实测（2026-11-22） |
 | [Git 操作规范](project/git-workflow.md) | 分支模型、提交规范、同步/变基/推送与清理流程 |
 
 ## 数据
