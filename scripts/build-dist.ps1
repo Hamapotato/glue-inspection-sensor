@@ -28,7 +28,7 @@ Copy-Item (Join-Path $hostDir "target\aarch64-unknown-linux-musl\release\glue-ag
 Copy-Item (Join-Path $hostDir "target\x86_64-unknown-linux-musl\release\glue-agent") "$out\bin\x86_64\glue-agent"
 Copy-Item (Join-Path $root "configs\default.yaml") "$out\configs\default.yaml"
 Copy-Item (Join-Path $root "configs\experiments\camera-mvs.yaml"), (Join-Path $root "configs\experiments\camera-synthetic.yaml") "$out\configs\experiments\" 2>$null
-Copy-Item (Join-Path $root "scripts\camera_mvs.py"), (Join-Path $root "scripts\camera_synthetic.py") "$out\scripts\"
+Copy-Item (Join-Path $root "scripts\camera_mvs.py"), (Join-Path $root "scripts\camera_synthetic.py"), (Join-Path $root "scripts\aidlite_server.py"), (Join-Path $root "scripts\aidlite_rpn_test.py") "$out\scripts\"
 Copy-Item (Join-Path $hostDir "deploy\*.sh"), (Join-Path $hostDir "deploy\glue-agent.service"), (Join-Path $hostDir "deploy\README.txt") "$out\deploy\"
 Copy-Item (Join-Path $hostDir "deploy\README.txt") "$out\README.txt"
 Copy-Item (Join-Path $hostDir "deploy\CAMERA-MVS.md") "$out\deploy\CAMERA-MVS.md" 2>$null
