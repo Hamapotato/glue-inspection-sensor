@@ -179,7 +179,7 @@ def draw_simple_timing(ax):
     boxes = [
         (92, "输入：相机灰度图像（1440×1080 Mono8）", IO),
         (80, "质量门控（工程前置）\n暗 / 过曝 / 模糊 / 对比度不足 → NO_QUALITY", DONE),
-        (64, "ROI 定位\nRPN（K-means 先验框 + NMS） 或 启发式（Otsu + 形态学）", DONE),
+        (64, "ROI 定位\nRPN（K-means 先验框 + NMS）", DONE),
         (44, "ROI 裁剪 → 预处理 → 量测\n分割/形态学 → 面积 & 骨架 → 平均宽度", DONE),
         (26, "缺陷判定\n断胶（RoI 数 > 1）｜ 过宽 / 过窄 ｜ 无法判定", DONE),
         (12, "输出：结果 JSON ｜ 报警信号 ｜ 记录", IO),
@@ -193,7 +193,7 @@ def draw_simple_timing(ax):
 
     timing = [
         (80, "3.06 / 9.05 ms\n（不通过则整帧短路 ≈3 ms）"),
-        (64, "RPN 23.81 / 54.28 ms\n启发式 6.41 / 12.10 ms"),
+        (64, "RPN 23.81 / 54.28 ms"),
         (44, "4.56 / 13.72 ms"),
         (26, "—（含在整帧内）"),
     ]
@@ -201,7 +201,7 @@ def draw_simple_timing(ax):
         timing_text(ax, 99, y, text, fontsize=9.0)
 
     ax.text(46, 2.5,
-            "整帧：RPN p50 31.87 / p95 62.65 ms ｜ 启发式 p50 10.61 / p95 25.85 ms",
+            "整帧：p50 31.87 ms / p95 62.65 ms",
             ha="center", va="center", fontsize=10.2, color=TIMING,
             bbox=dict(boxstyle="round,pad=0.4", facecolor="#fff3f3", edgecolor="#ef9a9a"))
 
