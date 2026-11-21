@@ -173,7 +173,7 @@ def main() -> int:
     fig, ax = plt.subplots(figsize=(13.5, 10), dpi=150)
     draw(ax, timing=args.timing)
     out = Path(args.out) if args.out else (
-        Path("docs/algo/figures/algorithm-pipeline-timing.png") if args.timing else DEFAULT_OUT
+        Path("docs/project/figures/algorithm-pipeline-timing.png") if args.timing else DEFAULT_OUT
     )
     out.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(out, bbox_inches="tight", facecolor="white")

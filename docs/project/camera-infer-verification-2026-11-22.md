@@ -75,7 +75,7 @@
 | 量测 measure | 4.28 / 13.75 | 4.56 / 13.72 |
 | **整帧 total** | **10.61 / 25.85** | **31.87 / 62.65** |
 
-![算法流程与板端实测耗时](../algo/figures/algorithm-pipeline-timing.png)
+![算法流程与板端实测耗时](figures/algorithm-pipeline-timing.png)
 
 *图：算法流程框图（红色为板端实测 p50 / p95，20 张样例）。*
 
