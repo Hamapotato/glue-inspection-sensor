@@ -1,10 +1,11 @@
-"""生成"论文算法 vs 产品算法"对比框图。
+"""生成"论文算法 vs 产品算法"对比框图（v2：结构优化版）。
 
 依据：docs/project/thesis-vs-product-algorithm.md（论文 3.1–5.3；产品册 P9–P17）。
-输出：docs/project/figures/thesis-vs-product-algorithm.png
+产品册原文只写"系统功能——智能检测（选配）"（P11–P12）；P10/P13 描述的
+"示教 + 图像处理"路线本文档简称"基础检测"，不是厂商的官方叫法。
 
-用法：
-    py -3 scripts/make_thesis_product_compare.py
+输出：docs/project/figures/thesis-vs-product-algorithm.png
+用法：py -3 scripts/make_thesis_product_compare.py
 """
 
 from __future__ import annotations
@@ -14,119 +15,126 @@ from pathlib import Path
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-from matplotlib.patches import FancyArrowPatch, FancyBboxPatch
+from matplotlib.patches import FancyArrowPatch, FancyBboxPatch, Rectangle
 
 plt.rcParams["font.sans-serif"] = ["Microsoft YaHei", "SimHei"]
 plt.rcParams["axes.unicode_minus"] = False
 
 OUT = Path("docs/project/figures/thesis-vs-product-algorithm.png")
 
-# 配色
-DL = ("#e3f2fd", "#1565c0")        # 深度学习相关
+DL = ("#e3f2fd", "#1565c0")        # 深度学习
 TRAD = ("#e8f5e9", "#2e7d32")      # 传统图像处理/几何
 TEACH = ("#fff8e1", "#ef6c00")     # 示教/规则
-IO = ("#eceff1", "#455a64")        # 输入输出/未公开
+IO = ("#eceff1", "#455a64")        # 输入输出
 NOTE = "#546e7a"
 
 
-def box(ax, x, y, w, h, text, kind=TRAD, fontsize=9.4, ls="-"):
+def box(ax, x, y, w, h, text, kind=TRAD, fontsize=9.6, ls="-"):
     face, edge = kind
     ax.add_patch(
         FancyBboxPatch(
-            (x - w / 2, y - h / 2),
-            w,
-            h,
+            (x - w / 2, y - h / 2), w, h,
             boxstyle="round,pad=0.25,rounding_size=1.0",
-            linewidth=1.4,
-            edgecolor=edge,
-            facecolor=face,
-            linestyle=ls,
-            zorder=2,
+            linewidth=1.4, edgecolor=edge, facecolor=face, linestyle=ls, zorder=2,
         )
     )
-    ax.text(x, y, text, ha="center", va="center", fontsize=fontsize, color="#212121", zorder=3, linespacing=1.25)
+    ax.text(x, y, text, ha="center", va="center", fontsize=fontsize,
+            color="#212121", zorder=3, linespacing=1.3)
 
 
-def arrow(ax, x1, y1, x2, y2, ls="-", color="#37474f"):
-    ax.add_patch(
-        FancyArrowPatch(
-            (x1, y1), (x2, y2), arrowstyle="-|>", linestyle=ls, mutation_scale=11,
-            linewidth=1.3, color=color, zorder=1, shrinkA=1, shrinkB=1,
-        )
-    )
+def arrow(ax, x1, y1, x2, y2, ls="-", color="#37474f", lw=1.3):
+    ax.add_patch(FancyArrowPatch(
+        (x1, y1), (x2, y2), arrowstyle="-|>", linestyle=ls, mutation_scale=11,
+        linewidth=lw, color=color, zorder=1, shrinkA=1, shrinkB=1,
+    ))
 
 
-def column(ax, cx, w, boxes, color_map):
-    for (y, text, key), next_y in zip(boxes, [b[0] for b in boxes[1:]] + [None]):
-        box(ax, cx, y, w, 7.0, text, color_map[key] if not isinstance(key, tuple) else key)
-        if next_y is not None:
-            arrow(ax, cx, y - 3.5, cx, next_y + 3.5)
+def flow(ax, cx, w, items, colors, h=7.0):
+    """垂直流：items = [(y, text, key)]。"""
+    for (y, text, key) in items:
+        box(ax, cx, y, w, h, text, colors[key] if isinstance(key, str) else key)
+    ys = [it[0] for it in items]
+    for a, b in zip(ys, ys[1:]):
+        arrow(ax, cx, a - h / 2, cx, b + h / 2)
 
 
 def main() -> int:
-    fig, ax = plt.subplots(figsize=(16, 11), dpi=150)
-    ax.set_xlim(0, 100)
-    ax.set_ylim(-8, 100)
+    fig, ax = plt.subplots(figsize=(17, 11.5), dpi=150)
+    ax.set_xlim(0, 130)
+    ax.set_ylim(0, 100)
     ax.axis("off")
 
-    # 列标题
-    for cx, title, sub in [
-        (18, "论文（天津大学，2022）", "深度学习辅助 + 几何量测"),
-        (54, "产品册 V3.3 · 标准检测", "示教 + 图像处理（不含深度学习）"),
-        (86, "产品册 V3.3 · 智能检测", "深度学习 CNN（选配）"),
-    ]:
-        ax.text(cx, 97.5, title, ha="center", va="center", fontsize=13, weight="bold", color="#212121")
-        ax.text(cx, 93.6, sub, ha="center", va="center", fontsize=9.5, color=NOTE)
+    title_y, sub_y = 98.0, 94.8
+    tips = [
+        (21, "论文（天津大学，2022）", "深度学习辅助 + 几何量测"),
+        (66, "产品册 V3.3 · 基础检测", "示教 + 图像处理（不含深度学习，P10/P13）"),
+        (106, "产品册 V3.3 · 智能检测（选配）", "CNN（结构/数据/指标未公开，P11–P12）"),
+    ]
+    for x, title, sub in tips:
+        ax.text(x, title_y, title, ha="center", va="center", fontsize=13, weight="bold", color="#212121")
+        ax.text(x, sub_y, sub, ha="center", va="center", fontsize=9.2, color=NOTE)
 
-    left = [
-        (87, "输入：三相机 120° 图像\n（红色 LED / 24V 触发）", "io"),
-        (77, "预处理：小波硬阈值去噪（式 4-4）", "trad"),
-        (67, "RoI 定位：RPN（K-means 9 先验框\n+ DIoU/CIoU + CIoU-NMS）", "dl"),
+    colors = {"io": IO, "trad": TRAD, "dl": DL, "teach": TEACH, "note": IO}
+
+    # ---------- 论文 ----------
+    paper = [
+        (90, "输入：三相机 120° 图像\n（红色 LED / 24V 触发）", "io"),
+        (79, "预处理：小波硬阈值去噪", "trad"),
+        (68, "RoI 定位：RPN\n（K-means 9 先验框 + DIoU/CIoU + NMS）", "dl"),
         (57, "RoI 裁剪", "trad"),
-        (47, "分割：Otsu/阈值 + 开闭运算", "trad"),
-        (37, "量测：BFS 面积 + Zhang-Suen 骨架\n→ 宽度 = 面积 ÷ 骨架长度", "trad"),
-        (27, "标定：13×9 棋盘格 → 像素→毫米", "trad"),
-        (17, "反光复判：YOLOv3-5FL + SPP\n（复判提示，不直接判废）", "dl"),
-        (7, "判定：断胶（RoI>1）/ 过宽 / 过窄\n→ 输出结果 / 报警", "io"),
+        (46, "分割：Otsu/阈值 + 开闭运算", "trad"),
+        (35, "量测：BFS 面积 + Zhang-Suen 骨架\n宽度 = 面积 ÷ 骨架长度\n（标定：13×9 棋盘格 → 毫米，离线一次）", "trad"),
+        (21, "判定：断胶（RoI>1）/ 过宽 / 过窄\n（YOLOv3-5FL+SPP 反光复判，可选提示）", "trad"),
+        (10, "输出：结果 / 报警", "io"),
     ]
-    mid = [
-        (87, "输入：1K/2K 相机\n360° 环形传感器", "io"),
-        (77, "红色 LED 均匀照射", "trad"),
-        (67, "示教：车型 / 轨迹 / ROI / 阈值", "teach"),
-        (57, "图像处理：灰度、位置信息", "trad"),
-        (47, "基于示教信息判断\n连续性 / 胶宽 / 位置", "teach"),
-        (37, "缺陷判定：断胶 / 过宽 / 过窄\n/ 位置偏差 / 多胶", "trad"),
-        (27, "输出：结果 / 报警 / 报表 / 追溯", "io"),
+    flow(ax, 21, 35, paper, colors)
+
+    # ---------- 产品·基础检测 ----------
+    basic = [
+        (90, "输入：1K/2K 三相机 360°\n（红色 LED 均匀照射）", "io"),
+        (79, "示教：车型 / 轨迹 / ROI / 阈值", "teach"),
+        (68, "图像处理：灰度、位置信息", "trad"),
+        (57, "基于示教判断\n连续性 / 胶宽 / 位置", "teach"),
+        (46, "缺陷判定：断胶 / 过宽 / 过窄\n/ 位置偏差 / 多胶", "trad"),
+        (22, "输出：结果 / 报警 / 报表 / 追溯", "io"),
     ]
-    right = [
-        (87, "输入：三相机图像", "io"),
-        (77, "训练：标签 + 大量胶水图像", "dl"),
-        (67, "CNN：Backbone + Neck\n+ 检测/坐标头（结构未公开）", "dl"),
-        (57, "输出：缺陷类别 / 坐标", "dl"),
-        (47, "判定：依赖网络输出", "dl"),
-        (27, "输出：结果 / 报警", "io"),
+    flow(ax, 66, 35, basic, colors)
+
+    # ---------- 产品·智能检测（离线训练 + 在线检测） ----------
+    ax.add_patch(Rectangle((88.5, 66.5), 35.5, 22.5, linewidth=1.2, edgecolor="#90a4ae",
+                           facecolor="none", linestyle="--", zorder=0))
+    ax.text(106.2, 87.4, "离线训练", ha="center", va="center", fontsize=9, color=NOTE)
+    box(ax, 106, 82, 33, 7, "大量涂胶图像 + 标签", DL, 9.6, ls="--")
+    arrow(ax, 106, 78.5, 106, 74.5, ls="--")
+    box(ax, 106, 71, 33, 7, "CNN 训练（Backbone + Neck + 头）", DL, 9.2, ls="--")
+
+    detect = [
+        (60, "在线检测：输入图像", "io"),
+        (50, "CNN 推理（Backbone + Neck\n+ 检测/坐标头）", "dl"),
+        (40, "输出：缺陷类别 / 坐标", "dl"),
+        (30, "判定：依赖网络输出", "dl"),
+        (20, "输出：结果 / 报警", "io"),
     ]
+    flow(ax, 106, 34, detect, colors)
+    arrow(ax, 106, 67.5, 106, 63.5, ls="--", color="#1565c0", lw=1.2)
 
-    colors = {"io": IO, "trad": TRAD, "dl": DL, "teach": TEACH}
-    column(ax, 18, 32, left, colors)
-    column(ax, 54, 30, mid, colors)
+    # 图例
+    legend = [
+        (8, "深度学习", DL, "-"),
+        (26, "传统图像处理/几何", TRAD, "-"),
+        (52, "示教/规则", TEACH, "-"),
+        (70, "输入/输出", IO, "-"),
+        (86, "虚线：离线或可选", IO, "--"),
+    ]
+    for x, label, (face, edge), ls in legend:
+        ax.add_patch(Rectangle((x, 2.2), 3.2, 2.4, facecolor=face, edgecolor=edge, linewidth=1.2, linestyle=ls))
+        ax.text(x + 4.2, 3.4, label, fontsize=9, va="center", color="#37474f")
 
-    # 智能检测列：虚线框表示"选配"
-    ax.add_patch(
-        FancyBboxPatch(
-            (72.5, 20), 25.5, 70.5, boxstyle="round,pad=0.3,rounding_size=1.2",
-            linewidth=1.2, edgecolor="#90a4ae", facecolor="none", linestyle="--", zorder=0,
-        )
-    )
-    column(ax, 86, 24, right, colors)
-
-    ax.text(86, 18.0, "注：训练数据、网络结构、指标未公开", ha="center", va="center", fontsize=8.8, color=NOTE)
-
-    # 差异/共同点注释
+    # 共同点/差异
     ax.text(
-        50, -4.2,
+        65, -4.2,
         "共同点：三相机 + 环形红色 LED + IO 触发；缺陷定义一致（断胶、过宽/过窄、多胶、位置偏差）。\n"
-        "差异：论文把深度学习用在“定位/抗反光”，宽度由几何量测保证；产品标准模式不含深度学习，智能模式把检测交给 CNN（结构未公开）。",
+        "差异：论文把深度学习用在“定位/抗反光”，宽度由几何量测保证；产品基础检测不含深度学习，智能检测把检测交给 CNN（选配）。",
         ha="center", va="center", fontsize=9.2, color=NOTE, linespacing=1.5,
     )
 
