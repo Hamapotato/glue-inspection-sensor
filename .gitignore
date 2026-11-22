@@ -33,3 +33,9 @@ outputs/
 # 数据集：只提交 manifest 与 splits，图像/标注不入库
 data/raw/
 data/labels/
+
+# VisionMaster 本地二进制部署资产；说明与 bundle.json 仍可入库
+deployment/visionmaster/*/solution/*.sol
+deployment/visionmaster/*/models/*
+deployment/visionmaster/*/validation/*
+!deployment/visionmaster/*/validation/README.md

@@ -1,0 +1,84 @@
+{
+  "bundle_version": "glue-m06-inspection-v1",
+  "created_at": "2026-11-22",
+  "status": "first_round_vm_run_observed",
+  "solution": {
+    "path": "solution/glue_m06_inspection_v1.sol",
+    "internal_solution_name": "glue_m06_inspection_v1",
+    "source_path": "D:\\VMProjects\\final.sol",
+    "source_sha256": "7AF1FAECEE647AEC00D7FFE4E145F84B421B855EFEB331C4C13BC95C01EC881E",
+    "sha256": "69D9C5261E632C30DD50EC7E6CA0582AAD8D8D3094AFDD652A5393E8AB76CEB4"
+  },
+  "model": {
+    "formal_name": "glue_bg_seg_syn500_v5_vm440_cpu_v001",
+    "deployment_target": "VisionMaster 4.4 CPU",
+    "selected_runtime_file": "models/glue_bg_seg_syn500_v5_vm440_cpu_v001_Board.bin",
+    "source_directory": "D:\\VMProjects\\glue_seg_syn500\\data\\1",
+    "source_selected_file": "Flaw_1_100_202611211543594_V1_Board.bin",
+    "selected_file_sha256": "23CD0B23D68B443C7B1F4807558AF9E5F7104822DA1E25812F9BB10E3269C38C",
+    "files": {
+      "models/glue_bg_seg_syn500_v5_vm440_cpu_v001_Board.bin": "23CD0B23D68B443C7B1F4807558AF9E5F7104822DA1E25812F9BB10E3269C38C",
+      "models/glue_bg_seg_syn500_v5_vm440_cpu_v001_Nvidia.bin": "0AAB01E9E8C476956A1980E5118EE5AB5B6091A6DC26A17B25C7DA30491A040D",
+      "models/glue_bg_seg_syn500_v5_vm440_cpu_v001.mvbonnx": "4E2DB5ECD4558792F9ADB8C44795753A3401E55D924B7A8673C8BFE04A16B093"
+    }
+  },
+  "validation_dataset": {
+    "path": "validation/glue-m06-matched-v1-100",
+    "source_path": "outputs/m06-validation/glue-m06-matched-v1-100",
+    "dataset_version": "m06-glue-matched-v1",
+    "source": "synthetic",
+    "acceptance_eligible": false,
+    "file_count": 305,
+    "total_bytes": 70461531,
+    "counts": {
+      "images": 100,
+      "masks": 100,
+      "labels": 100,
+      "metadata_files": 5
+    },
+    "scenario_counts": {
+      "reference_good": 1,
+      "normal": 19,
+      "break": 20,
+      "narrow": 20,
+      "wide": 20,
+      "bend": 20
+    },
+    "file_sha256": {
+      "dataset.json": "09190F020F3BC29CFABC1E691AEC0A166AF5A34291E62BAAE0E58F21326C5117",
+      "manifest.csv": "9A705B1EACEA641EADCFC6BBC099CEE4EFFA76510C2331230A19913FC719772C",
+      "reference.json": "5B7815EB4AF075BD306DA91373DADAABE8FCB8B118660783D8F9F9306CAE028F"
+    }
+  },
+  "observed_capabilities": [
+    {
+      "name": "break",
+      "evidence": "user_reported_first_round_vm_run",
+      "quantified": false
+    },
+    {
+      "name": "too_narrow",
+      "evidence": "user_reported_first_round_vm_run",
+      "quantified": false
+    },
+    {
+      "name": "too_wide",
+      "evidence": "user_reported_first_round_vm_run",
+      "quantified": false
+    },
+    {
+      "name": "bubble",
+      "evidence": "user_reported_first_round_vm_run",
+      "quantified": false
+    }
+  ],
+  "not_established": [
+    "real_camera_metrics",
+    "real_pixel_scale",
+    "real_width_mae",
+    "real_defect_recall",
+    "real_false_positive_rate",
+    "inference_p50_p95",
+    "end_to_end_p50_p95"
+  ]
+}

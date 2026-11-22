@@ -2,9 +2,9 @@
 
 示例：
     py -3 scripts/generate_visiontrain_dataset.py `
-      --out outputs/synthetic/visiontrain-glue-v1 `
-      --samples 60 `
-      --seed 20261120
+      --out outputs/synthetic/visiontrain-glue-binary-v5-500 `
+      --samples 500 `
+      --seed 20261121
 
 注意：合成数据只用于流程验证、冒烟和预训练，不能作为真实指标验收数据。
 """
@@ -25,7 +25,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="生成 VisionTrain 涂胶合成分割数据集")
     parser.add_argument(
         "--out",
-        default="outputs/synthetic/visiontrain-glue-v1",
+        default="outputs/synthetic/visiontrain-glue-binary-v5",
         help="输出目录，必须不存在或为空",
     )
     parser.add_argument("--samples", type=int, default=None, help="覆盖配置中的样本数")

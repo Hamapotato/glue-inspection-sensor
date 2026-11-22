@@ -1,10 +1,6 @@
-# 算法配置基线（P0）
+# 旋转扫描矩形主线配置基线
 # 说明：代码中不允许出现业务阈值字面量，一律从这里读取。
 # 带 [假设] 标记的项，论文未给出，属于本次复现自定参数（见 docs/algo/p0-spec.md §5）。
-
-input:
-  resize_long_side: 0        # 0 表示不缩放；缩放到该长边像素数
-  to_gray: true
 
 calib:
   enabled: false             # 无标定文件时为 false，宽度只输出像素
@@ -13,61 +9,41 @@ calib:
   square_mm: 4.0             # 论文 4.3.2：方格间距 4 mm
   mapping_table: null        # 按位置的映射数据库（JSON），对应论文 4.3.2 的映射标准值
 
-preprocess:
-  denoise:
-    method: wavelet          # wavelet | median | none
-    wavelet: haar            # [假设] 论文未给基函数
-    level: 2                 # [假设] 分解层数
-    mode: hard               # 论文 4.1.1：硬阈值
-  segment:
-    method: otsu             # otsu | global | double_peak（论文选 Otsu）
+segmentation:
+  mode: external              # external | development_threshold（仅无模型冒烟）
+  model_path: null            # 分割模型文件；由具体部署适配器解释
+  threshold: 0.5              # [假设] 概率图二值化阈值
   morph:
-    ksize: 5                 # [假设] 开闭核尺寸
-    order: open-close        # 先开（去噪点）后闭（补孔洞）
+    ksize: 5                  # [假设] 分割后开闭核尺寸
+    order: open-close         # 先开去噪点，后闭补小孔
 
 measure:
-  bfs_connectivity: 8
+  mask_connectivity: 8       # 分割掩膜连通域邻接方式
   min_area_px: 200           # 小于该面积的连通域视为噪点
-  skeleton:
-    method: zhang_suen       # 文献 [53]
   width:
     standard_mm: 10.0        # [假设] 论文表 5-4 的理论宽度为 10±1 mm
     warn_delta_mm: 0.5       # [假设] 双报警线：预警阈值（相对标准值的偏差）
     alarm_delta_mm: 1.0      # 报警阈值；与表 5-4 的 ±1 mm 容差一致
-
-locate:
-  enabled: false
-  type: heuristic            # rpn | heuristic
-  weights: null
-  score_thr: 0.5
-  nms:
-    type: ciou_nms           # nms | ciou_nms（论文 3.1.4）
-    thr: 0.5                 # 论文表 3-2 中选定阈值
-  anchors:
-    k: 9                     # [假设] 论文用 K-means 生成，数量沿用 RPN 的 9
-    iters: 100
-
-reflect:
-  enabled: false
-  type: null_reflector       # yolo5fl | heuristic | null_reflector
-  weights: null
-  score_thr: 0.5             # [假设]
-  input_size: 416
-  high_value: 245            # [假设] heuristic 占位实现的饱和阈值
-  min_area_px: 30            # [假设] heuristic 占位实现的最小反光面积
-
-decide:
-  broken_min_rois: 2         # 论文 5.3.3：RoI 数量 > 1 判为断胶
-  reflection_override: true  # 命中反光时不直接判缺陷，改为提示调参
-
-runtime:
-  device: cpu
-  half: false
+  scan:
+    enabled: true
+    step_px: 12              # [假设] 相邻扫描矩形中心距
+    window_length_px: 24     # [假设] 单个扫描矩形沿胶条方向的长度
+    window_width_factor: 3.0 # 矩形横向宽度至少是实测胶宽的 3 倍
+    max_ray_px: 180          # [假设] 从中心向左右寻找边缘的最大搜索距离
+    ray_step_px: 0.5         # [假设] 法向寻边采样间隔
+    break_min_missing_windows: 1  # 缺失左右边缘的矩形即判断胶
+    centerline_smooth_window: 7   # 中心线滑动平均点数
+    width_range_alarm_mm: 1.2     # 同一胶条局部最大最小宽度差报警线
+    width_std_alarm_mm: 0.30      # 扫描宽度标准差报警线
+    curve_warn_mm: 2.0            # 中心线偏离首尾弦线的预警值
+    curve_alarm_mm: 3.0           # 中心线弯曲报警值
+    curve_warn_px: 10.0           # 未标定时使用的弯曲预警值
+    curve_alarm_px: 16.0          # 未标定时使用的弯曲报警值
 
 # VisionTrain 合成分割数据集。
 # [合成边界] 只用于流程验证、冒烟和预训练，不能作为真实指标验收数据。
 synthetic_dataset:
-  version: visiontrain-glue-synthetic-v1
+  version: visiontrain-glue-binary-v5
   image_size: [1080, 1440]  # (height, width)，与首台相机原图分辨率一致
   samples: 60
   seed: 20261120
@@ -78,50 +54,100 @@ synthetic_dataset:
     val: 0.15
     test: 0.15
   scenario_weights:
-    ok: 0.30
-    narrow: 0.08
-    wide: 0.08
-    break: 0.16
-    bubble: 0.12
-    stringing: 0.10
-    contamination: 0.10
-    reflection: 0.06
+    glue: 0.35
+    background: 0.15
+    break: 0.15
+    narrow: 0.125
+    wide: 0.125
+    width_unstable: 0.05
+    curve: 0.05
   scene:
     background_range: [28.0, 76.0]
-    workpiece_range: [48.0, 118.0]
     gradient_strength: [0.04, 0.22]
     texture_sigma: [1.5, 7.0]
-    highlight_probability: 0.35
-    highlight_gain: 45.0
-    highlight_length_ratio: [1.2, 2.8]
-    strong_reflection_gain: 115.0
-    reflection_length_ratio: [4.0, 8.0]
   glue:
-    width_px: [34.0, 58.0]
+    width_px: [39.0, 41.0]
     min_width_px: 5.0
-    length_ratio: [1.10, 1.55]  # 相对图像高度的中心线长度
+    length_ratio: [0.58, 0.78]  # 相对图像宽度的中心线长度
+    center_x_ratio: [0.46, 0.54]
+    center_y_ratio: [0.46, 0.54]
     angle_deg: [-24.0, 24.0]
-    amplitude_px: [2.0, 24.0]
+    amplitude_px: [1.0, 4.0]
+    max_amplitude_ratio: 0.12
     wave_count: [0.7, 1.8]
     slope_ratio: [-0.035, 0.035]
-    width_variation: [0.02, 0.16]
+    width_variation: [0.005, 0.03]
     value_range: [105.0, 235.0]
     texture_sigma: 8.0
   variants:
-    narrow_scale: [0.45, 0.70]
-    wide_scale: [1.25, 1.65]
+    narrow_width_scale: 0.55
+    wide_width_scale: 1.45
+    width_unstable_variation_scale: 4.0
+    curve_amplitude_px: [32.0, 50.0]
   defects:
     break_length_ratio: [0.08, 0.18]
     break_margin_px: 2.0
-    bubble_radius_ratio: [0.18, 0.42]
-    bubble_min_radius_px: 2.0
-    bubble_ring_ratio: 0.20
-    stringing_length_ratio: [1.5, 4.0]
-    stringing_min_length_px: 8.0
-    stringing_bend_ratio: [-0.30, 0.30]
-    stringing_thickness_px: 2
-    contamination_radius_ratio: [0.18, 0.55]
-    contamination_min_radius_px: 2.0
   camera:
     blur_kernel: [1.0, 3.0]
     noise_sigma: 2.2
+
+# 将 synthetic_dataset 掩膜转换为 VisionTrain 2.3 可导入格式。
+# 格式依据 VisionTrain 导出样例；GUI 回读验证仍必须人工完成。
+visiontrain_export:
+  image_type: train
+  contour_epsilon_px: 0.5
+  min_contour_area_px: 1.0
+
+# M06 同轨迹验证集。
+# 所有图像共用一条固定标准胶路，只改变断胶、胶宽或局部弯曲，用于检查
+# VisionMaster 的“边缘对模型缺陷检测”是否按预期命中。
+# [合成边界] 仅用于流程验证和冒烟，不能作为真实产线指标验收数据。
+m06_validation:
+  version: m06-glue-matched-v1
+  trajectory_id: m06_fixed_path_v1
+  seed: 20261121
+  total_samples: 100
+  image_size: [1080, 1440]  # (height, width)
+  pixel_format: Mono8
+  min_component_area_px: 50
+  counts:
+    reference_good: 1
+    normal: 19
+    break: 20
+    narrow: 20
+    wide: 20
+    bend: 20
+  fixed_trajectory:
+    centerline_points: 401
+    angle_deg: 0.0
+    length_ratio: 0.72
+    center_x_ratio: 0.50
+    center_y_ratio: 0.50
+    amplitude_px: 22.0
+    wave_count: 0.80
+    phase_rad: 0.35
+    slope_ratio: 0.0
+    base_width_px: 40.0
+    width_variation: 0.01
+    width_phase_rad: 0.0
+    min_width_px: 5.0
+  background:
+    background_range: [28.0, 76.0]
+    gradient_strength: [0.04, 0.22]
+    texture_sigma: [1.5, 7.0]
+  glue_appearance:
+    value_range: [130.0, 220.0]
+    texture_sigma: 7.0
+  camera:
+    blur_kernel: [1.0, 3.0]
+    noise_sigma: 1.8
+  variants:
+    normal_width_scale: [0.985, 1.015]
+    narrow_width_scale: [0.52, 0.64]
+    wide_width_scale: [1.36, 1.50]
+    break_length_px: [60.0, 120.0]
+    break_center_ratio: [-0.15, 0.15]
+    break_margin_px: 4.0
+    bend_amplitude_px: [26.0, 38.0]
+    bend_center_ratio: [-0.12, 0.12]
+    bend_span_ratio: [0.28, 0.38]

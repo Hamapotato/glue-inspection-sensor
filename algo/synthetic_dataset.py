@@ -1,14 +1,12 @@
-"""面向 VisionTrain 图像分割训练的涂胶合成数据集生成器。
+"""面向 VisionTrain 的二分类涂胶合成数据集生成器。
 
-本模块生成程序化合成图像、严格对齐的掩膜、逐图标签和 manifest，用于：
+本模块只生成以下两个语义类别：
 
-- 验证 VisionTrain 的图像导入、标注映射、训练和模型导出流程；
-- 在真实数据未到位前搭建 VisionMaster 流程原型；
-- 在受控条件下补充断胶、气泡、拉丝和污染等困难样本。
+- ``background``：背景和没有胶条的区域；
+- ``glue``：背景上的可见胶条。
 
-**边界**：所有输出均为合成数据，只可用于冒烟、流程验证和预训练。
-最终验收必须使用真实相机图像和人工真值，见 AGENTS.md R1 与
-docs/algo/p0-spec.md §2、§6。
+图像场景分为“背景上直接有胶条”和“纯背景”两类，不绘制工件板或其他承载物。
+所有输出均为合成数据，只可用于冒烟、流程验证和预训练，不得作为真实指标验收数据。
 """
 
 from __future__ import annotations
@@ -23,45 +21,37 @@ from typing import Any, Mapping
 import cv2
 import numpy as np
 
-DEFECT_CLASS_IDS: dict[str, int] = {
+TASK = "binary_glue_background_segmentation"
+CLASS_IDS: dict[str, int] = {
     "background": 0,
-    "break": 1,
-    "bubble": 2,
-    "stringing": 3,
-    "contamination": 4,
+    "glue": 1,
 }
-
 SCENARIOS: tuple[str, ...] = (
-    "ok",
+    "glue",
+    "background",
+    "break",
     "narrow",
     "wide",
-    "break",
-    "bubble",
-    "stringing",
-    "contamination",
-    "reflection",
+    "width_unstable",
+    "curve",
 )
-
 SCENARIO_LABELS: dict[str, str] = {
-    "ok": "OK",
+    "glue": "GLUE",
+    "background": "BACKGROUND",
+    "break": "BROKEN",
     "narrow": "TOO_NARROW",
     "wide": "TOO_WIDE",
-    "break": "BROKEN",
-    "bubble": "BUBBLE",
-    "stringing": "STRINGING",
-    "contamination": "CONTAMINATION",
-    "reflection": "REFLECTION",
+    "width_unstable": "WIDTH_UNSTABLE",
+    "curve": "BENT",
 }
 
 
 @dataclass(frozen=True)
 class GeneratedSample:
-    """一帧合成图像及其像素级标注。"""
+    """一帧二分类合成图像及其像素级标注。"""
 
     image: np.ndarray
     glue_mask: np.ndarray
-    defect_mask: np.ndarray
-    hard_background_mask: np.ndarray
     scenario: str
     label: str
     nominal_width_px: float
@@ -91,14 +81,19 @@ class _GlueGeometry:
     mask: np.ndarray
 
     def center(self, index: int) -> tuple[float, float]:
+        """返回中心线上指定点的坐标。"""
+
         return float(self.xs[index]), float(self.ys[index])
 
     def normal(self, index: int) -> tuple[float, float]:
+        """返回中心线上指定点的单位法向量。"""
+
         return float(self.normals_x[index]), float(self.normals_y[index])
 
 
 def _uniform(rng: np.random.Generator, bounds: list[float] | tuple[float, float]) -> float:
     """从闭区间配置中采样一个浮点数。"""
+
     if len(bounds) != 2:
         raise ValueError(f"区间配置必须包含两个值：{bounds}")
     low, high = float(bounds[0]), float(bounds[1])
@@ -109,6 +104,7 @@ def _uniform(rng: np.random.Generator, bounds: list[float] | tuple[float, float]
 
 def _weighted_choice(rng: np.random.Generator, weights: Mapping[str, float]) -> str:
     """按配置权重选择一个场景。"""
+
     names = [name for name in SCENARIOS if float(weights.get(name, 0.0)) > 0]
     if not names:
         raise ValueError("scenario_weights 至少需要一个正值")
@@ -119,17 +115,19 @@ def _weighted_choice(rng: np.random.Generator, weights: Mapping[str, float]) -> 
 
 def _odd_kernel(value: int) -> int:
     """把配置中的模糊核大小规范为不小于 1 的奇数。"""
+
     value = max(1, int(value))
     return value if value % 2 == 1 else value + 1
 
 
-def _draw_background(
+def _draw_scene(
     rng: np.random.Generator,
     height: int,
     width: int,
     scene_cfg: Mapping[str, Any],
 ) -> np.ndarray:
-    """生成带亮度梯度、工件平面、纹理、划痕和噪声的背景。"""
+    """生成只有背景纹理的浮点图像，不绘制工件板。"""
+
     yy, xx = np.mgrid[0:height, 0:width].astype(np.float32)
     angle = float(rng.uniform(0.0, 2.0 * math.pi))
     projected = xx * math.cos(angle) + yy * math.sin(angle)
@@ -149,40 +147,6 @@ def _draw_background(
     )
     image += coarse
 
-    workpiece = np.zeros((height, width), dtype=np.uint8)
-    rect = (
-        (width * 0.5, height * 0.54),
-        (width * 0.92, height * 0.64),
-        float(rng.uniform(-8.0, 8.0)),
-    )
-    points = cv2.boxPoints(rect).astype(np.int32)
-    cv2.fillPoly(workpiece, [points], 255)
-    workpiece_value = _uniform(rng, scene_cfg["workpiece_range"])
-    image[workpiece > 0] = workpiece_value + coarse[workpiece > 0] * 1.2
-
-    cv2.polylines(
-        image,
-        [points],
-        isClosed=True,
-        color=float(rng.uniform(20.0, 70.0)),
-        thickness=int(rng.integers(1, 4)),
-    )
-
-    for _ in range(int(rng.integers(0, 5))):
-        x1 = int(rng.integers(0, width))
-        y1 = int(rng.integers(0, height))
-        length = int(rng.integers(width // 20, max(width // 5, width // 20 + 1)))
-        angle_deg = float(rng.uniform(-25.0, 25.0))
-        x2 = int(np.clip(x1 + length * math.cos(math.radians(angle_deg)), 0, width - 1))
-        y2 = int(np.clip(y1 + length * math.sin(math.radians(angle_deg)), 0, height - 1))
-        cv2.line(
-            image,
-            (x1, y1),
-            (x2, y2),
-            float(rng.uniform(45.0, 105.0)),
-            int(rng.integers(1, 3)),
-        )
-
     return image.astype(np.float32)
 
 
@@ -192,80 +156,131 @@ def _build_glue_geometry(
     width: int,
     glue_cfg: Mapping[str, Any],
     centerline_points: int,
-    width_scale: float,
+    *,
+    width_scale: float = 1.0,
+    amplitude_scale: float = 1.0,
+    amplitude_override_px: float | None = None,
+    width_variation_scale: float = 1.0,
+    bow_mode: bool = False,
 ) -> _GlueGeometry:
-    """根据随机中心线和宽度变化生成胶条基础几何。"""
+    """在画面背景上生成一条随机宽度、轻微弯曲的胶条。"""
+
     angle = math.radians(_uniform(rng, glue_cfg["angle_deg"]))
-    length = float(height) * _uniform(rng, glue_cfg["length_ratio"])
-    half_length = min(length / 2.0, min(height, width) * 0.48)
+    length = width * _uniform(rng, glue_cfg["length_ratio"])
+    half_length = length / 2.0
 
     ts = np.linspace(-1.0, 1.0, centerline_points)
     local_x = ts * half_length
-    amplitude = _uniform(rng, glue_cfg["amplitude_px"])
+    amplitude_source = (
+        float(amplitude_override_px)
+        if amplitude_override_px is not None
+        else _uniform(rng, glue_cfg["amplitude_px"]) * amplitude_scale
+    )
+    amplitude = min(
+        amplitude_source,
+        max(1.0, height * float(glue_cfg["max_amplitude_ratio"])),
+    )
     frequency = _uniform(rng, glue_cfg["wave_count"])
     phase = float(rng.uniform(0.0, 2.0 * math.pi))
     slope = _uniform(rng, glue_cfg["slope_ratio"])
-    local_y = amplitude * np.sin(math.pi * frequency * ts + phase) + slope * local_x
+    if bow_mode:
+        local_y = amplitude * (1.0 - ts * ts) + slope * local_x
+    else:
+        local_y = amplitude * np.sin(math.pi * frequency * ts + phase) + slope * local_x
 
-    center_x = width * 0.5 + float(rng.uniform(-0.06, 0.06)) * width
-    center_y = height * 0.5 + float(rng.uniform(-0.06, 0.06)) * height
+    center_x = width * _uniform(rng, glue_cfg["center_x_ratio"])
+    center_y = height * _uniform(rng, glue_cfg["center_y_ratio"])
     cos_a, sin_a = math.cos(angle), math.sin(angle)
-    xs = center_x + cos_a * local_x - sin_a * local_y
-    ys = center_y + sin_a * local_x + cos_a * local_y
+    xs_center = center_x + cos_a * local_x - sin_a * local_y
+    ys_center = center_y + sin_a * local_x + cos_a * local_y
 
-    dx = np.gradient(xs)
-    dy = np.gradient(ys)
+    dx = np.gradient(xs_center)
+    dy = np.gradient(ys_center)
     norm = np.hypot(dx, dy)
     norm[norm == 0] = 1.0
     normals_x = -dy / norm
     normals_y = dx / norm
 
-    base_width = _uniform(rng, glue_cfg["width_px"])
-    variation = _uniform(rng, glue_cfg["width_variation"])
+    base_width = _uniform(rng, glue_cfg["width_px"]) * width_scale
+    variation = _uniform(rng, glue_cfg["width_variation"]) * width_variation_scale
     width_phase = float(rng.uniform(0.0, 2.0 * math.pi))
-    widths = base_width * width_scale * (
+    widths = base_width * (
         1.0 + variation * np.sin(math.pi * frequency * ts + width_phase)
     )
     widths = np.maximum(widths, float(glue_cfg["min_width_px"]))
 
     left = np.stack(
-        [xs + normals_x * widths / 2.0, ys + normals_y * widths / 2.0], axis=1
+        [xs_center + normals_x * widths / 2.0, ys_center + normals_y * widths / 2.0],
+        axis=1,
     )
     right = np.stack(
-        [xs - normals_x * widths / 2.0, ys - normals_y * widths / 2.0], axis=1
+        [xs_center - normals_x * widths / 2.0, ys_center - normals_y * widths / 2.0],
+        axis=1,
     )
     polygon = np.concatenate([left, right[::-1]], axis=0)
     mask = np.zeros((height, width), dtype=np.uint8)
     cv2.fillPoly(mask, [np.round(polygon).astype(np.int32)], 255)
-    return _GlueGeometry(xs, ys, normals_x, normals_y, widths, mask)
+    if int((mask > 0).sum()) == 0:
+        raise ValueError("胶条掩膜为空")
+
+    return _GlueGeometry(
+        xs=xs_center,
+        ys=ys_center,
+        normals_x=normals_x,
+        normals_y=normals_y,
+        widths=widths,
+        mask=mask,
+    )
 
 
-def _paint_class(mask: np.ndarray, polygon: np.ndarray, class_id: int) -> None:
-    """只在尚未标注的像素上写入类别，避免缺陷类别互相覆盖。"""
-    candidate = np.zeros_like(mask)
-    cv2.fillPoly(candidate, [np.round(polygon).astype(np.int32)], class_id)
-    write = (candidate > 0) & (mask == 0)
-    mask[write] = class_id
+def _bbox(mask: np.ndarray) -> list[int] | None:
+    """返回掩膜外接框，格式与项目 Box 一致。"""
+
+    ys, xs = np.nonzero(mask)
+    if len(xs) == 0:
+        return None
+    return [int(xs.min()), int(ys.min()), int(xs.max() + 1), int(ys.max() + 1)]
 
 
-def _add_break(
+def _defect_record(
+    defect_type: str,
+    mask: np.ndarray,
+    **details: Any,
+) -> dict[str, Any] | None:
+    """构造缺陷元数据；空掩膜不产生记录。"""
+
+    box = _bbox(mask)
+    area = int((mask > 0).sum())
+    if area == 0 or box is None:
+        return None
+    return {
+        "type": defect_type,
+        "area_px": area,
+        "box": box,
+        **details,
+    }
+
+
+def _cut_break(
     rng: np.random.Generator,
     glue: _GlueGeometry,
-    defect_mask: np.ndarray,
+    glue_mask: np.ndarray,
     defect_cfg: Mapping[str, Any],
-) -> np.ndarray:
-    """切断胶条并返回断口区域掩膜。"""
+) -> tuple[np.ndarray, dict[str, Any] | None]:
+    """从胶条中间切除一段，形成真实断口。"""
+
     gap_ratio = _uniform(rng, defect_cfg["break_length_ratio"])
     gap_center = float(rng.uniform(-0.2, 0.2))
     start = gap_center - gap_ratio / 2.0
     end = gap_center + gap_ratio / 2.0
-    indices = np.flatnonzero((np.linspace(-1.0, 1.0, len(glue.xs)) >= start) & (
-        np.linspace(-1.0, 1.0, len(glue.xs)) <= end
-    ))
+    positions = np.linspace(-1.0, 1.0, len(glue.xs))
+    indices = np.flatnonzero((positions >= start) & (positions <= end))
     if len(indices) < 2:
         indices = np.array([len(glue.xs) // 2 - 1, len(glue.xs) // 2])
 
-    half_width = glue.widths[indices] / 2.0 + float(defect_cfg["break_margin_px"])
+    half_width = glue.widths[indices] / 2.0 + float(
+        defect_cfg["break_margin_px"]
+    )
     left = np.stack(
         [
             glue.xs[indices] + glue.normals_x[indices] * half_width,
@@ -280,236 +295,90 @@ def _add_break(
         ],
         axis=1,
     )
-    break_mask = np.zeros_like(defect_mask)
+    break_mask = np.zeros_like(glue_mask)
     polygon = np.concatenate([left, right[::-1]], axis=0)
     cv2.fillPoly(break_mask, [np.round(polygon).astype(np.int32)], 255)
-    break_mask &= glue.mask
-    defect_mask[break_mask > 0] = DEFECT_CLASS_IDS["break"]
-    return break_mask
-
-
-def _add_bubble(
-    rng: np.random.Generator,
-    image: np.ndarray,
-    glue: _GlueGeometry,
-    defect_mask: np.ndarray,
-    defect_cfg: Mapping[str, Any],
-) -> None:
-    """在胶条内部生成气泡/凹坑，并写入像素类别。"""
-    index = int(rng.integers(len(glue.xs) // 5, max(len(glue.xs) * 4 // 5, 2)))
-    cx, cy = glue.center(index)
-    radius = max(
-        float(defect_cfg["bubble_min_radius_px"]),
-        float(glue.widths[index]) * _uniform(rng, defect_cfg["bubble_radius_ratio"]),
+    break_mask &= glue_mask
+    glue_mask[break_mask > 0] = 0
+    return break_mask, _defect_record(
+        "break",
+        break_mask,
+        gap_ratio=gap_ratio,
     )
-    axes = (int(radius), max(1, int(radius * float(rng.uniform(0.65, 1.0)))))
-    angle = float(rng.uniform(0.0, 180.0))
-
-    local = np.zeros_like(defect_mask)
-    cv2.ellipse(local, (int(cx), int(cy)), axes, angle, 0, 360, 255, -1)
-    local &= glue.mask
-    write = (local > 0) & (defect_mask == 0)
-    image[write] = np.clip(
-        image[write] * float(rng.uniform(0.35, 0.75))
-        + float(rng.uniform(15.0, 55.0)),
-        0,
-        255,
-    )
-    defect_mask[write] = DEFECT_CLASS_IDS["bubble"]
-
-    ring = cv2.ellipse(
-        np.zeros_like(glue.mask),
-        (int(cx), int(cy)),
-        axes,
-        angle,
-        0,
-        360,
-        255,
-        max(1, int(radius * float(defect_cfg["bubble_ring_ratio"]))),
-    )
-    ring = (ring > 0) & (glue.mask > 0) & (defect_mask == 0)
-    image[ring] = np.clip(
-        image[ring] * float(rng.uniform(1.05, 1.25)) + 10.0, 0, 255
-    )
-    defect_mask[ring] = DEFECT_CLASS_IDS["bubble"]
-
-
-def _add_stringing(
-    rng: np.random.Generator,
-    image: np.ndarray,
-    glue: _GlueGeometry,
-    defect_mask: np.ndarray,
-    defect_cfg: Mapping[str, Any],
-) -> None:
-    """从胶条边缘生成一条细拉丝。"""
-    index = int(rng.integers(len(glue.xs) // 6, max(len(glue.xs) * 5 // 6, 2)))
-    cx, cy = glue.center(index)
-    nx, ny = glue.normal(index)
-    direction = float(rng.choice([-1.0, 1.0]))
-    start = np.array(
-        [cx + direction * nx * glue.widths[index] / 2.0,
-         cy + direction * ny * glue.widths[index] / 2.0]
-    )
-    length = max(
-        float(defect_cfg["stringing_min_length_px"]),
-        float(glue.widths[index]) * _uniform(rng, defect_cfg["stringing_length_ratio"]),
-    )
-    tangent = np.array([-ny, nx]) * direction
-    bend = _uniform(rng, defect_cfg["stringing_bend_ratio"]) * length
-    p1 = start + np.array([nx, ny]) * direction * length * 0.5 + tangent * bend * 0.5
-    p2 = start + np.array([nx, ny]) * direction * length + tangent * bend
-    line_width = int(defect_cfg["stringing_thickness_px"])
-
-    local = np.zeros_like(defect_mask)
-    cv2.polylines(
-        local,
-        [np.round(np.stack([start, p1, p2])).astype(np.int32)],
-        isClosed=False,
-        color=255,
-        thickness=line_width,
-        lineType=cv2.LINE_AA,
-    )
-    write = (local > 0) & (defect_mask == 0)
-    image[write] = np.clip(
-        image[write] * float(rng.uniform(0.65, 0.95))
-        + float(rng.uniform(35.0, 80.0)),
-        0,
-        255,
-    )
-    defect_mask[write] = DEFECT_CLASS_IDS["stringing"]
-
-
-def _add_contamination(
-    rng: np.random.Generator,
-    image: np.ndarray,
-    glue: _GlueGeometry,
-    defect_mask: np.ndarray,
-    defect_cfg: Mapping[str, Any],
-) -> None:
-    """在胶条附近生成不规则脏污/异物。"""
-    index = int(rng.integers(len(glue.xs) // 6, max(len(glue.xs) * 5 // 6, 2)))
-    cx, cy = glue.center(index)
-    radius = max(
-        float(defect_cfg["contamination_min_radius_px"]),
-        float(glue.widths[index])
-        * _uniform(rng, defect_cfg["contamination_radius_ratio"]),
-    )
-    count = int(rng.integers(8, 15))
-    angles = np.linspace(0.0, 2.0 * math.pi, count, endpoint=False)
-    radial = radius * rng.uniform(0.55, 1.25, size=count)
-    points = np.stack(
-        [cx + np.cos(angles) * radial, cy + np.sin(angles) * radial], axis=1
-    )
-    _paint_class(defect_mask, points, DEFECT_CLASS_IDS["contamination"])
-
-    painted = defect_mask == DEFECT_CLASS_IDS["contamination"]
-    image[painted] = np.clip(
-        image[painted] * float(rng.uniform(0.25, 0.65))
-        + float(rng.uniform(10.0, 45.0)),
-        0,
-        255,
-    )
-
-
-def _add_reflection(
-    rng: np.random.Generator,
-    image: np.ndarray,
-    glue: _GlueGeometry,
-    hard_background_mask: np.ndarray,
-    scene_cfg: Mapping[str, Any],
-    strong: bool,
-) -> None:
-    """加入反光条纹，并把反光区域记录为困难背景。"""
-    index = int(rng.integers(len(glue.xs) // 5, max(len(glue.xs) * 4 // 5, 2)))
-    cx, cy = glue.center(index)
-    rx = max(3, int(glue.widths[index] * float(rng.uniform(0.8, 1.8))))
-    ry = max(
-        8,
-        int(
-            glue.widths[index]
-            * _uniform(
-                rng,
-                scene_cfg["reflection_length_ratio"] if strong else scene_cfg["highlight_length_ratio"],
-            )
-        ),
-    )
-    highlight = np.zeros_like(hard_background_mask)
-    cv2.ellipse(highlight, (int(cx), int(cy)), (rx, ry), 0, 0, 360, 255, -1)
-    highlight = cv2.GaussianBlur(
-        highlight,
-        (0, 0),
-        sigmaX=max(1.0, rx / 3.0),
-        sigmaY=max(1.0, ry / 4.0),
-    )
-    gain = float(
-        scene_cfg["strong_reflection_gain"] if strong else scene_cfg["highlight_gain"]
-    )
-    image += highlight.astype(np.float32) / 255.0 * gain
-    hard_background_mask[(highlight > 20) & (glue.mask > 0)] = 255
-
-
-def _bbox(mask: np.ndarray) -> list[int] | None:
-    """返回掩膜外接框，格式与项目 Box 一致。"""
-    ys, xs = np.nonzero(mask)
-    if len(xs) == 0:
-        return None
-    return [int(xs.min()), int(ys.min()), int(xs.max() + 1), int(ys.max() + 1)]
 
 
 def generate_sample(
     settings: Mapping[str, Any],
     sample_seed: int,
 ) -> GeneratedSample:
-    """生成一帧合成涂胶图像及像素级标注。"""
+    """生成一帧只有背景和胶条两个类别的合成图像。"""
+
     height, width = (int(v) for v in settings["image_size"])
     rng = np.random.default_rng(sample_seed)
     scenario = _weighted_choice(rng, settings["scenario_weights"])
 
-    image = _draw_background(rng, height, width, settings["scene"])
-    scale_key = {"narrow": "narrow_scale", "wide": "wide_scale"}.get(scenario)
-    width_scale = (
-        _uniform(rng, settings["variants"][scale_key]) if scale_key else 1.0
-    )
-    glue = _build_glue_geometry(
+    image = _draw_scene(
         rng,
         height,
         width,
-        settings["glue"],
-        int(settings["centerline_points"]),
-        width_scale,
+        settings["scene"],
     )
-    glue_mask = glue.mask.copy()
-    defect_mask = np.zeros((height, width), dtype=np.uint8)
-    hard_background_mask = np.zeros((height, width), dtype=np.uint8)
+    glue_mask = np.zeros((height, width), dtype=np.uint8)
+    nominal_width_px = 0.0
+    defect_records: list[dict[str, Any]] = []
 
-    break_mask = np.zeros((height, width), dtype=np.uint8)
-    if scenario == "break":
-        break_mask = _add_break(rng, glue, defect_mask, settings["defects"])
-        glue_mask[break_mask > 0] = 0
-
-    strip = glue_mask > 0
-    glue_value = _uniform(rng, settings["glue"]["value_range"])
-    centerline_noise = rng.normal(0.0, float(settings["glue"]["texture_sigma"]), size=(height, width))
-    image[strip] = glue_value + centerline_noise[strip]
-
-    if scenario == "bubble":
-        _add_bubble(rng, image, glue, defect_mask, settings["defects"])
-    elif scenario == "stringing":
-        _add_stringing(rng, image, glue, defect_mask, settings["defects"])
-    elif scenario == "contamination":
-        _add_contamination(rng, image, glue, defect_mask, settings["defects"])
-
-    if scenario == "reflection" or bool(
-        rng.random() < float(settings["scene"]["highlight_probability"])
-    ):
-        _add_reflection(
-            rng,
-            image,
-            glue,
-            hard_background_mask,
-            settings["scene"],
-            strong=scenario == "reflection",
+    if scenario != "background":
+        width_scale = {
+            "narrow": float(settings["variants"]["narrow_width_scale"]),
+            "wide": float(settings["variants"]["wide_width_scale"]),
+        }.get(scenario, 1.0)
+        width_variation_scale = (
+            float(settings["variants"]["width_unstable_variation_scale"])
+            if scenario == "width_unstable"
+            else 1.0
         )
+        curve_amplitude = (
+            _uniform(rng, settings["variants"]["curve_amplitude_px"])
+            if scenario == "curve"
+            else None
+        )
+        glue = _build_glue_geometry(
+            rng,
+            height,
+            width,
+            settings["glue"],
+            int(settings["centerline_points"]),
+            width_scale=width_scale,
+            amplitude_override_px=curve_amplitude,
+            width_variation_scale=width_variation_scale,
+            bow_mode=scenario == "curve",
+        )
+        glue_mask = glue.mask.copy()
+        if scenario == "break":
+            _, record = _cut_break(rng, glue, glue_mask, settings["defects"])
+            if record is not None:
+                defect_records.append(record)
+
+        glue_value = _uniform(rng, settings["glue"]["value_range"])
+        texture = rng.normal(
+            0.0,
+            float(settings["glue"]["texture_sigma"]),
+            size=(height, width),
+        )
+        strip = glue_mask > 0
+        image[strip] = glue_value + texture[strip]
+        nominal_width_px = float(np.median(glue.widths))
+        if scenario in {"narrow", "wide", "width_unstable", "curve"}:
+            defect_records.append(
+                {
+                    "type": scenario,
+                    "area_px": int((glue_mask > 0).sum()),
+                    "box": _bbox(glue_mask),
+                    "nominal_width_px": nominal_width_px,
+                    "min_width_px": float(np.min(glue.widths)),
+                    "max_width_px": float(np.max(glue.widths)),
+                }
+            )
 
     blur_kernel = _odd_kernel(int(_uniform(rng, settings["camera"]["blur_kernel"])))
     if blur_kernel > 1:
@@ -521,31 +390,12 @@ def generate_sample(
     ).astype(np.float32)
     image = np.clip(image, 0, 255).astype(np.uint8)
 
-    defect_records: list[dict[str, Any]] = []
-    for class_name, class_id in DEFECT_CLASS_IDS.items():
-        if class_id == 0:
-            continue
-        class_mask = np.where(defect_mask == class_id, 255, 0).astype(np.uint8)
-        box = _bbox(class_mask)
-        area = int((class_mask > 0).sum())
-        if area > 0 and box is not None:
-            defect_records.append(
-                {
-                    "class": class_name,
-                    "class_id": class_id,
-                    "area_px": area,
-                    "box": box,
-                }
-            )
-
     return GeneratedSample(
         image=image,
         glue_mask=np.where(glue_mask > 0, 255, 0).astype(np.uint8),
-        defect_mask=defect_mask,
-        hard_background_mask=hard_background_mask,
         scenario=scenario,
         label=SCENARIO_LABELS[scenario],
-        nominal_width_px=float(np.median(glue.widths)),
+        nominal_width_px=nominal_width_px,
         defect_records=defect_records,
     )
 
@@ -556,6 +406,7 @@ def _assign_group_splits(
     split_ratios: Mapping[str, float],
 ) -> list[str]:
     """按工件组分配 split，避免同一工件的多帧跨集合。"""
+
     if group_count <= 0:
         raise ValueError("group_count 必须大于 0")
     names = ("train", "val", "test")
@@ -589,7 +440,7 @@ def generate_dataset(
     samples: int | None = None,
     seed: int | None = None,
 ) -> DatasetSummary:
-    """生成一个可复现的涂胶分割数据集。
+    """生成一个可复现的胶条/背景二分类合成数据集。
 
     参数
     ----
@@ -602,6 +453,7 @@ def generate_dataset(
     seed:
         可选随机种子覆盖。
     """
+
     settings = config.get("synthetic_dataset") if isinstance(config, dict) else None
     if not isinstance(settings, Mapping):
         raise ValueError("配置缺少 synthetic_dataset 段")
@@ -618,14 +470,7 @@ def generate_dataset(
     if root.exists() and any(root.iterdir()):
         raise FileExistsError(f"输出目录非空，请使用新版本目录：{root}")
 
-    for relative in (
-        "images",
-        "masks/glue",
-        "masks/defects",
-        "masks/hard_background",
-        "labels",
-        "splits",
-    ):
+    for relative in ("images", "masks/glue", "labels", "splits"):
         (root / relative).mkdir(parents=True, exist_ok=True)
 
     group_count = math.ceil(sample_count / frames_per_object)
@@ -648,19 +493,18 @@ def generate_dataset(
         sample = generate_sample(settings, scene_seed)
         image_path = root / "images" / f"{image_id}.png"
         glue_path = root / "masks" / "glue" / f"{image_id}.png"
-        defect_path = root / "masks" / "defects" / f"{image_id}.png"
-        hard_path = root / "masks" / "hard_background" / f"{image_id}.png"
         label_path = root / "labels" / f"{image_id}.json"
 
         if not cv2.imwrite(str(image_path), sample.image):
             raise OSError(f"无法写入图像：{image_path}")
         if not cv2.imwrite(str(glue_path), sample.glue_mask):
             raise OSError(f"无法写入胶条掩膜：{glue_path}")
-        if not cv2.imwrite(str(defect_path), sample.defect_mask):
-            raise OSError(f"无法写入缺陷掩膜：{defect_path}")
-        if not cv2.imwrite(str(hard_path), sample.hard_background_mask):
-            raise OSError(f"无法写入困难背景掩膜：{hard_path}")
 
+        has_glue = bool((sample.glue_mask > 0).any())
+        glue_pixels = int((sample.glue_mask > 0).sum())
+        defect_types = ";".join(
+            str(record["type"]) for record in sample.defect_records
+        )
         label_data = {
             "image": f"images/{image_id}.png",
             "image_size": {
@@ -668,19 +512,19 @@ def generate_dataset(
                 "width": int(sample.image.shape[1]),
             },
             "source": "synthetic",
+            "task": TASK,
             "scene_id": object_id,
             "split": split,
             "scenario": sample.scenario,
             "label": sample.label,
+            "has_glue": has_glue,
+            "has_defect": bool(sample.defect_records),
             "acceptance_eligible": False,
-            "masks": {
-                "glue": f"masks/glue/{image_id}.png",
-                "defects": f"masks/defects/{image_id}.png",
-                "hard_background": f"masks/hard_background/{image_id}.png",
-            },
-            "class_ids": DEFECT_CLASS_IDS,
-            "defects": sample.defect_records,
+            "mask": f"masks/glue/{image_id}.png",
+            "classes": CLASS_IDS,
+            "glue_pixels": glue_pixels,
             "nominal_width_px": sample.nominal_width_px,
+            "defects": sample.defect_records,
         }
         label_path.write_text(
             json.dumps(label_data, ensure_ascii=False, indent=2),
@@ -691,15 +535,17 @@ def generate_dataset(
             {
                 "image_id": image_id,
                 "path": f"images/{image_id}.png",
+                "mask": f"masks/glue/{image_id}.png",
                 "split": split,
                 "object_id": object_id,
                 "batch": batch,
                 "source": "synthetic",
                 "scenario": sample.scenario,
                 "label": sample.label,
-                "defect_types": ";".join(
-                    record["class"] for record in sample.defect_records
-                ),
+                "has_glue": int(has_glue),
+                "has_defect": int(bool(sample.defect_records)),
+                "defect_types": defect_types,
+                "glue_pixels": glue_pixels,
                 "nominal_width_px": f"{sample.nominal_width_px:.3f}",
                 "generator_seed": actual_seed,
                 "scene_seed": scene_seed,
@@ -721,18 +567,24 @@ def generate_dataset(
         writer.writeheader()
         writer.writerows(manifest_rows)
 
+    generation_config = dict(settings)
+    generation_config["samples"] = sample_count
+    generation_config["seed"] = actual_seed
     dataset_meta = {
         "dataset_version": settings["version"],
+        "task": TASK,
         "source": "synthetic",
         "acceptance_eligible": False,
         "warning": "仅用于 VisionTrain 流程验证、冒烟和预训练；不得作为真实指标验收数据。",
         "seed": actual_seed,
         "sample_count": sample_count,
         "frames_per_object": frames_per_object,
-        "class_ids": DEFECT_CLASS_IDS,
+        "class_ids": CLASS_IDS,
+        "mask_files": {"glue": "masks/glue/<image_id>.png"},
+        "defect_types": ["break", "narrow", "wide", "width_unstable", "curve"],
         "split_counts": {name: len(ids) for name, ids in split_ids.items()},
         "scenario_counts": scenario_counts,
-        "generation_config": settings,
+        "generation_config": generation_config,
     }
     (root / "dataset.json").write_text(
         json.dumps(dataset_meta, ensure_ascii=False, indent=2),

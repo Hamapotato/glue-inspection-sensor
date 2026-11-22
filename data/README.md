@@ -11,9 +11,7 @@
 data/
 ├─ raw/<date>/<camera_id>/<image_id>.png     # 原图，禁止裁剪/压缩
 ├─ labels/
-│  ├─ roi/<image_id>.json                    # {"boxes": [[x1,y1,x2,y2], ...]}
-│  ├─ reflection/<image_id>.json             # 反光框，同格式
-│  ├─ mask/<image_id>.png                    # 胶条掩膜（仅评估用）
+│  ├─ glue/<image_id>.png                    # 胶条/背景二值掩膜
 │  └─ width.csv                              # 人工卡尺宽度真值
 ├─ splits/{train,val,test}.txt               # 每行一个 image_id
 └─ manifest.csv                              # 采集参数台账（可提交）
@@ -40,15 +38,16 @@ data/
 | `working_distance_mm` | 工作距离 | 120 |
 | `light_mode` | 光源状态 | red-strobe |
 | `glue_color` | 胶色 | black / white |
-| `label` | 类别 | OK / BROKEN / TOO_NARROW / TOO_WIDE / REFLECTION |
+| `label` | 质量结论 | OK / BROKEN / TOO_NARROW / TOO_WIDE / WIDTH_UNSTABLE / BENT |
 | `ignore` | 1 表示该图标注存疑，评测跳过 | 0 |
 
 模板见 [`manifest.template.csv`](manifest.template.csv)。
 
 ## VisionTrain 合成数据
 
-`algo/synthetic_dataset.py` 可生成独立目录下的合成训练集，包含图像、胶条掩膜、
-缺陷掩膜、困难背景掩膜、逐图 JSON、manifest 和按 `object_id` 分组划分。
+`algo/synthetic_dataset.py` 可生成独立目录下的合成训练集，包含图像、
+`background/glue` 二值掩膜、场景元数据、逐图 JSON、manifest 和按 `object_id`
+分组划分。
 
 合成数据集不写入 `data/raw` 或 `data/labels`，默认输出到被 Git 忽略的
 `outputs/`。生成目录中的 `dataset.json` 固定写入 `acceptance_eligible=false`，
@@ -68,5 +67,5 @@ data/
 ## 划分规则（必须遵守）
 
 1. **按 `object_id` / `batch` 划分**，不按帧随机划分，避免同一条胶条泄漏到训练与测试；
-2. 反光样本**整组划分**（同一光照/工位条件归入同一侧）；
-3. 划分结果写入 `splits/*.txt`，一次确定后不得因结果不好而更换（p0-spec §2、AGENTS.md §6.1）。
+2. 划分结果写入 `splits/*.txt`，一次确定后不得因结果不好而更换
+   （p0-spec §2、AGENTS.md §6）。

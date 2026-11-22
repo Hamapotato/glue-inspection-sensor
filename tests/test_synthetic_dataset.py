@@ -1,4 +1,4 @@
-"""VisionTrain 合成数据集生成器测试。"""
+"""VisionTrain 胶条/背景二分类合成数据集生成器测试。"""
 
 from __future__ import annotations
 
@@ -17,14 +17,14 @@ import numpy as np  # noqa: E402
 
 from algo.config import load_config  # noqa: E402
 from algo.synthetic_dataset import (  # noqa: E402
-    DEFECT_CLASS_IDS,
+    CLASS_IDS,
     SCENARIOS,
     generate_dataset,
 )
 
 
 def make_config(
-    scenario: str = "ok",
+    scenario: str = "glue",
     *,
     samples: int = 6,
     frames_per_object: int = 1,
@@ -57,15 +57,19 @@ class TestSyntheticDataset(unittest.TestCase):
             self.assertTrue((root / "dataset.json").is_file())
             self.assertEqual(len(list((root / "images").glob("*.png"))), 6)
             self.assertEqual(len(list((root / "masks/glue").glob("*.png"))), 6)
-            self.assertEqual(len(list((root / "masks/defects").glob("*.png"))), 6)
             self.assertEqual(len(list((root / "labels").glob("*.json"))), 6)
+            self.assertFalse((root / "masks" / "defects").exists())
+            self.assertFalse((root / "masks" / "hard_background").exists())
 
             meta = json.loads((root / "dataset.json").read_text(encoding="utf-8"))
             self.assertEqual(meta["source"], "synthetic")
+            self.assertEqual(meta["class_ids"], CLASS_IDS)
             self.assertFalse(meta["acceptance_eligible"])
             self.assertIn("不得作为真实指标", meta["warning"])
+            self.assertEqual(meta["generation_config"]["samples"], 6)
+            self.assertEqual(meta["generation_config"]["seed"], 1234)
 
-    def test_image_and_masks_are_aligned(self):
+    def test_image_and_mask_are_aligned_and_binary(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir) / "dataset"
             generate_dataset(root, make_config(samples=4))
@@ -76,29 +80,19 @@ class TestSyntheticDataset(unittest.TestCase):
                     str(root / "masks" / "glue" / f"{image_id}.png"),
                     cv2.IMREAD_GRAYSCALE,
                 )
-                defects = cv2.imread(
-                    str(root / "masks" / "defects" / f"{image_id}.png"),
-                    cv2.IMREAD_GRAYSCALE,
-                )
-                hard = cv2.imread(
-                    str(root / "masks" / "hard_background" / f"{image_id}.png"),
-                    cv2.IMREAD_GRAYSCALE,
-                )
                 self.assertEqual(image.shape, glue.shape)
-                self.assertEqual(image.shape, defects.shape)
-                self.assertEqual(image.shape, hard.shape)
+                self.assertTrue(set(np.unique(glue)).issubset({0, 255}))
                 self.assertGreater(int((glue > 0).sum()), 0)
-                self.assertTrue(set(np.unique(defects)).issubset(set(DEFECT_CLASS_IDS.values())))
 
     def test_deterministic_for_same_seed(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             first = Path(temp_dir) / "first"
             second = Path(temp_dir) / "second"
-            cfg = make_config(scenario="bubble", samples=3)
+            cfg = make_config(scenario="width_unstable", samples=3)
             generate_dataset(first, cfg, seed=777)
             generate_dataset(second, cfg, seed=777)
 
-            for relative in ("images", "masks/glue", "masks/defects", "labels"):
+            for relative in ("images", "masks/glue", "labels"):
                 first_files = sorted((first / relative).glob("*"))
                 second_files = sorted((second / relative).glob("*"))
                 self.assertEqual(len(first_files), len(second_files))
@@ -116,16 +110,45 @@ class TestSyntheticDataset(unittest.TestCase):
             second_image = sorted((second / "images").glob("*.png"))[0]
             self.assertNotEqual(file_digest(first_image), file_digest(second_image))
 
-    def test_break_scenario_creates_break_pixels(self):
+    def test_break_creates_two_glue_components_and_metadata(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir) / "dataset"
             generate_dataset(root, make_config(scenario="break", samples=3))
-            for mask_path in sorted((root / "masks/defects").glob("*.png")):
+            for mask_path in sorted((root / "masks/glue").glob("*.png")):
                 mask = cv2.imread(str(mask_path), cv2.IMREAD_GRAYSCALE)
-                self.assertGreater(
-                    int((mask == DEFECT_CLASS_IDS["break"]).sum()),
-                    0,
+                count, _, stats, _ = cv2.connectedComponentsWithStats(
+                    (mask > 0).astype(np.uint8),
+                    connectivity=8,
                 )
+                areas = stats[1:, cv2.CC_STAT_AREA]
+                self.assertGreaterEqual(int((areas >= 2).sum()), 2)
+
+                label = json.loads(
+                    (root / "labels" / f"{mask_path.stem}.json").read_text(
+                        encoding="utf-8"
+                    )
+                )
+                self.assertTrue(label["has_defect"])
+                self.assertEqual(label["defects"][0]["type"], "break")
+
+    def test_defect_scenarios_record_metadata_without_new_classes(self):
+        for scenario in ("narrow", "wide", "width_unstable", "curve"):
+            with self.subTest(scenario=scenario):
+                with tempfile.TemporaryDirectory() as temp_dir:
+                    root = Path(temp_dir) / "dataset"
+                    generate_dataset(root, make_config(scenario=scenario, samples=1))
+                    label_path = next((root / "labels").glob("*.json"))
+                    label = json.loads(label_path.read_text(encoding="utf-8"))
+                    self.assertEqual(label["classes"], CLASS_IDS)
+                    self.assertEqual(label["defects"][0]["type"], scenario)
+
+    def test_background_has_empty_glue_mask(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir) / "dataset"
+            generate_dataset(root, make_config(scenario="background", samples=2))
+            for mask_path in sorted((root / "masks/glue").glob("*.png")):
+                mask = cv2.imread(str(mask_path), cv2.IMREAD_GRAYSCALE)
+                self.assertEqual(int((mask > 0).sum()), 0)
 
     def test_group_split_has_no_duplicates(self):
         with tempfile.TemporaryDirectory() as temp_dir:

@@ -1,37 +1,39 @@
 # 项目文档索引
 
-本目录按文档职责分为算法、硬件和项目三类。新增文档时应放入对应目录，并同步更新本索引。
+本目录只保留当前“胶条分割模型 + 旋转扫描矩形”技术路线的文档。
 
 ## 算法
 
 | 文档 | 内容 |
 |---|---|
-| [算法与标定阶段汇报](algo/algorithm-and-calibration-report.md) | 当前算法成果、验证结果、模型边界和近期标定安排 |
+| [算法与标定报告](algo/algorithm-and-calibration-report.md) | 当前分割主线、扫描量测和标定边界 |
 | [单相机标定计划](algo/calibration-plan.md) | 标定靶、3D 打印支架、采图、标定和尺寸验证流程 |
-| [算法复现方案](algo/plan.md) | 论文算法拆解、分层架构、数据与评估方案 |
-| [阶段进度](algo/progress.md) | 当前完成度、流程图和阶段性结论 |
-| [P0 指标与数据规范](algo/p0-spec.md) | M1–M10 指标口径、数据规范与假设登记 |
+| [算法主线方案](algo/plan.md) | 分割模型、旋转扫描矩形、边缘中点曲线和质量判定 |
+| [阶段进度](algo/progress.md) | 当前完成度和阶段性结论 |
+| [P0 指标与数据规范](algo/p0-spec.md) | 分割、扫描量测、判定指标与假设登记 |
 | [接口契约](algo/interfaces.md) | 算法接口、配置键、输出结构和降级策略 |
-| [任务清单](algo/tasks.md) | P0–P5 任务、依赖关系与阻塞项 |
-| [VisionTrain 数据准备](algo/visiontrain-data-preparation.md) | 合成分割数据生成、输出格式、导入验证和非验收边界 |
-| [VisionTrain 训练与部署 SOP](algo/visiontrain-training-sop.md) | 从方案创建、标注、训练、评估到 VisionMaster 部署的逐步操作 |
-| [P1 宽度量测报告](algo/reports/p1-measure.md) | 当前合成自检报告；真实指标待现场验证 |
+| [任务清单](algo/tasks.md) | 主线清理、模型、量测、标定和部署任务 |
+| [VisionTrain 数据准备](algo/visiontrain-data-preparation.md) | 胶条/背景二分类数据生成、缺陷场景元数据、输出格式和非验收边界 |
+| [VisionTrain 人工校验](algo/visiontrain-manual-review.md) | 新版二分类导入、缺陷场景语义检查和失败记录 |
+| [VisionTrain 训练与部署 SOP](algo/visiontrain-training-sop.md) | 胶条/背景二分类训练、评估和接入主线 |
+| [VisionMaster 部署流程](algo/visionmaster-deployment-sop.md) | VM 4.4 加载分割模型、输出掩膜、单图验证和接入主线 |
+| [VisionMaster 纯 VM 主线](algo/visionmaster-pure-vm-mainline.md) | VM 内完成分割、掩膜、边缘对轨迹、缺陷和 OK/NG 判断 |
+| [VisionMaster 拖拽端到端 SOP](algo/visionmaster-dragdrop-end-to-end.md) | 从空方案开始，按顺序配置模块、订阅输入、连接流程并输出 OK/NG |
+| [M06 同轨迹验证数据集](algo/m06-matched-validation-dataset.md) | 固定标准胶路的正常、断胶、宽窄和弯曲配对数据 |
+| [旋转扫描矩形量测](algo/scanline-measurement.md) | 沿胶条方向生成扫描窗、左右边缘点、中心曲线、断胶/宽度/弯曲判定 |
 
-## 硬件
-
-| 文档 | 内容 |
-|---|---|
-| [复现 BOM](hardware/reproduction-bom.md) | 相机、镜头、LED、电源、接口和 PCB 初步方案 |
-| [相机与镜头选型](hardware/hikrobot-usb-camera-comparison.md) | HIKROBOT USB 3.0 相机横向对比和最终选型 |
-| [相机与镜头选型 PDF](hardware/hikrobot-usb-camera-comparison.pdf) | 便于汇报和分享的 PDF 版本 |
-| [第一批采购清单](hardware/first-procurement-list.md) | 首台相机、镜头、线缆、安装件和到货验收要求 |
-
-## 项目
+## 部署
 
 | 文档 | 内容 |
 |---|---|
-| [产品开发路线](project/product-development-roadmap.md) | 从论文装置到 RK3588 工程样机和产品化的开发路线 |
-| [导师汇报摘要](project/mentor-report-summary.md) | 项目总体方案、阶段安排和汇报重点 |
+| [M06 首轮部署包](../deployment/visionmaster/glue_m06_inspection_v1/README.md) | 正式命名的 VM 方案、VM 440 CPU 模型、M06 配套验证集和当前事实边界 |
+
+## 归档
+
+| 文档 | 内容 |
+|---|---|
+| [旧论文算法归档](../archive/legacy-paper-algorithm/README.md) | RPN、YOLO 反光、面积/骨架平均宽度、旧合成演示和历史文档 |
+| [非主线文档归档](../archive/non-mainline-docs/README.md) | 硬件、采购、BOM、产品路线和汇报材料 |
 
 ## 数据
 
@@ -41,9 +43,8 @@
 
 ## 维护规则
 
-1. 算法方法、指标和实验文档放在 `docs/algo/`；
-2. 器件、采购、相机和光学选型放在 `docs/hardware/`；
-3. 产品路线、导师汇报和跨专业项目材料放在 `docs/project/`；
-4. 新增顶层类别时同步修改本索引和根目录 `README.md`；
-5. 移动文档后必须检查相对链接；
-6. 合成数据结果必须标明“非真实指标”，不得与正式验收结果混写。
+1. 当前技术路线文档放在 `docs/algo/`；
+2. 数据规范放在 `data/README.md`；
+3. 非当前技术路线材料移入 `archive/`，不留在主文档入口；
+4. 移动文档后必须检查相对链接；
+5. 合成数据结果必须标明“非真实指标”，不得与正式验收结果混写。

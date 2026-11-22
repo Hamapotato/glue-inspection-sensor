@@ -1,7 +1,7 @@
 # AGENTS.md
 
 本文件规范**所有在本仓库工作的 AI agent**（以及人类协作者）的行为。
-目标只有一个：让"论文复现"这件事的结果**可核查、可复现、不含编造**。
+目标只有一个：让当前涂胶检测技术路线的结果**可核查、可复现、不含编造**。
 
 > 违反第 2 节红线的改动，无论多小，都视为无效改动。
 
@@ -10,13 +10,14 @@
 ## 0. 开工前必读（按顺序，约 5 分钟）
 
 1. [README.md](README.md) —— 仓库定位与当前进度
-2. [docs/algo/progress.md](docs/algo/progress.md) —— **阶段性汇报：论文算法、完成进度、流程框图与总结**
-3. [docs/algo/plan.md](docs/algo/plan.md) —— 复现范围与分层架构
-4. [docs/algo/p0-spec.md](docs/algo/p0-spec.md) —— 指标口径（M1–M10）与假设登记（A1–A15）
+2. [docs/algo/progress.md](docs/algo/progress.md) —— 当前完成度、主线状态和边界
+3. [docs/algo/plan.md](docs/algo/plan.md) —— 分割模型与旋转扫描量测主线
+4. [docs/algo/p0-spec.md](docs/algo/p0-spec.md) —— 分割、量测、判定指标与假设登记
 5. [docs/algo/interfaces.md](docs/algo/interfaces.md) —— 接口契约与配置键
 6. [docs/algo/tasks.md](docs/algo/tasks.md) —— 当前任务与阻塞项
 7. [docs/algo/calibration-plan.md](docs/algo/calibration-plan.md) —— 单相机标定、采图和尺寸验证流程
-8. [docs/algo/algorithm-and-calibration-report.md](docs/algo/algorithm-and-calibration-report.md) —— 当前算法成果与近期工作汇报
+8. [docs/algo/scanline-measurement.md](docs/algo/scanline-measurement.md) —— 扫描矩形、边缘点和中心曲线
+9. [docs/algo/algorithm-and-calibration-report.md](docs/algo/algorithm-and-calibration-report.md) —— 当前主线与标定边界
 
 ---
 
@@ -24,7 +25,7 @@
 
 - **是什么**：以《基于机器视觉的车身涂胶在线检测系统研究》（天津大学硕士学位论文）为起点的涂胶检测传感器复现项目。
 - **不是什么**：不是论文原作者的代码仓库；论文未公开源码、数据与训练参数。
-- **当前阶段**：P0 规范与 P1 传统量测链路已完成可运行原型（65 项测试），P2 大部分完成；首台相机和 MVS 已就绪，正在进入单相机标定与真实数据验证。B1/B2 模型代码在 `wip/b1-b2` 分支未验证；尚无训练好的模型与真实数据指标。
+- **当前阶段**：唯一主线是“胶条分割模型 + 旋转扫描矩形 + 边缘中点曲线”。分割接口、二值后处理、扫描量测、判定和合成链路已完成（44 项主线测试）；尚无已验证的真实分割模型和真实相机指标。旧论文并列算法在 `archive/legacy-paper-algorithm/`。
 - **事实来源**：`references/source/` 下的 PDF（本地，不入库）。一切关于论文的陈述以原文为准。
 
 ---
@@ -34,12 +35,12 @@
 | # | 规则 | 说明 |
 |---|---|---|
 | R1 | **不得编造数据或指标** | 不虚构实验数字、不"估算"论文没给的指标、不把合成数据结果当成真实数据结果 |
-| R2 | **论文事实与复现假设必须分开** | 论文没给的参数写入 `p0-spec.md` §5 假设登记表；代码里用 `[假设]` 注释 |
-| R3 | **不得为了通过而改评测口径** | 指标定义以 `p0-spec.md` M1–M10 为准；要改定义必须先改文档并说明理由 |
+| R2 | **事实与假设必须分开** | 论文没给的参数写入 `p0-spec.md` §4 假设登记表；代码里用 `[假设]` 注释 |
+| R3 | **不得为了通过而改评测口径** | 指标定义以 `p0-spec.md` 的 S/M/Q 指标为准；要改定义必须先改文档并说明理由 |
 | R4 | **不得提交第三方受版权限制的材料** | `references/source/` 已被忽略；不要把 PDF、数据集、模型权重提交进 Git |
 | R5 | **不得擅自 push / force push / 改远端** | 本地提交可以；推送到 GitHub 需人类确认 |
 | R6 | **不得删除或跳过测试来"修绿"** | 修实现，不修测试；`skip` 必须有原因和关联任务号 |
-| R7 | **不得静默降级** | 缺标定/缺权重时必须写进结果的 `details`，让下游能看见 |
+| R7 | **不得静默降级** | 缺标定/缺模型时必须写进结果的 `degradations` 或 `details`，让下游能看见 |
 | R8 | **不得在代码中硬编码业务阈值** | 全部走 `configs/default.yaml` |
 
 ---
@@ -53,11 +54,11 @@
 | `scripts/` | 可执行入口 | 只做编排，不放算法逻辑 |
 | `tests/` | 单元测试 | 新增模块必须带测试 |
 | `docs/algo/` | 算法文档 | 与代码同步更新；`tasks.md` 勾选 |
-| `docs/hardware/` | BOM、采购、相机与镜头选型 | 仅在明确任务下修改 |
-| `docs/project/` | 产品路线、导师汇报和项目管理材料 | 仅在明确任务下修改 |
+| `archive/legacy-paper-algorithm/` | 旧论文并列算法 | 只追溯，不导入主包 |
+| `archive/non-mainline-docs/` | BOM、采购、产品路线和汇报材料 | 不进入当前技术路线入口 |
 | `docs/README.md` | 文档总索引 | 新增顶层文档时同步维护 |
 | `references/` | 参考资料说明 | **不改**；`references/source/` 不提交 |
-| `data/`（待建） | 数据与标注 | 只提交 manifest 与划分文件，不提交图像 |
+| `data/` | 数据与标注 | 只提交 manifest 与划分文件，不提交图像 |
 
 ---
 
@@ -66,7 +67,7 @@
 ### 4.1 环境
 
 - Python **≥3.10**；推荐 3.12（torch 生态最稳）。3.14 亦可（cv2 5.0 / torch 2.15 可用）。
-- 核心依赖保持最小：`numpy`、`opencv-python`、`pyyaml`。深度学习为**可选依赖**（torch），导入必须放在函数内或 `try/except` 中，保证无 torch 环境仍能跑传统链路。
+- 核心依赖保持最小：`numpy`、`opencv-python`、`pyyaml`。深度学习为**可选依赖**（torch），导入必须放在函数内或 `try/except` 中，保证无模型运行时仍能跑接口、扫描量测和测试。
 - 每个仓库一份独立 venv，不装进系统 Python。
 
 ```powershell
@@ -79,11 +80,11 @@ pip install -r requirements.txt
 
 - 标识符英文，注释/文档字符串中文。
 - 所有公开函数带类型标注；数据结构用 `dataclass`。
-- 文档字符串**必须注明对应论文位置**，例如：
+- 文档字符串必须注明对应接口或技术文档；若实现直接来自论文，再注明论文位置。例如：
 
 ```python
-def bbox_diou(box, boxes):
-    """DIoU 相似度（式 3-10），对应论文 3.1.3。"""
+def scan_glue_strip(mask, cfg, mm_per_px=None):
+    """沿胶条方向生成扫描矩形，见 docs/algo/scanline-measurement.md。"""
 ```
 
 - 数学实现优先 numpy 向量化，避免逐像素 Python 循环（BFS 除外）。
@@ -221,21 +222,22 @@ git -c http.proxy=http://<代理地址>:<端口> `
 
 1. 在 `docs/algo/tasks.md` 找到/新增任务编号；
 2. 先在 `interfaces.md` 定接口（若涉及新接口）；
-3. 新建 `algo/<module>.py`，docstring 注明论文章节；
+3. 新建 `algo/<module>.py`，docstring 注明对应接口或技术文档；
 4. 在 `configs/default.yaml` 加参数（如需要）；
 5. 写 `tests/test_<module>.py`（unittest）；
 6. 跑测试 + 更新文档 + 勾选任务 + 提交。
 
-### 7.2 新增一次消融实验
+### 7.2 新增或更新一次模型/量测实验
 
-1. 明确对应论文哪张表（表 3-1/3-2/3-4/4-3/4-4/4-5）；
-2. 配置写到 `configs/experiments/<name>.yaml`，不改默认配置；
-3. 结果落 `outputs/<name>/`（已被忽略）或 `docs/algo/reports/`；
-4. 报告注明 seed、数据版本、commit hash。
+1. 在 `docs/algo/tasks.md` 找到或新增 M 组任务；
+2. 明确使用合成数据还是真实数据，并记录版本、seed 和 commit hash；
+3. 分割模型实验与扫描量测实验分开报告，不混用指标；
+4. 结果落 `outputs/<name>/`（已被忽略）；需要入库的结论写入 `docs/algo/`；
+5. 合成结果必须标记非验收数据。
 
 ### 7.3 修改指标定义
 
-必须同时改三处：`p0-spec.md` 的定义表、`algo/metrics.py` 的实现、受影响的历史报告（加注说明），并在提交信息里说明原因。
+必须同时修改 `p0-spec.md` 的定义表、对应评测实现和受影响报告，并在提交信息里说明原因。不得通过修改指标定义掩盖失败结果。
 
 ---
 
@@ -245,17 +247,23 @@ git -c http.proxy=http://<代理地址>:<端口> `
 # 单元测试（unittest，无需 pytest）
 py -3 -m unittest discover -s tests -v
 
-# 合成样本冒烟（无数据、无 torch 也能跑）
-py -3 scripts/demo_synthetic.py
+# 合成掩膜主线冒烟
+py -3 scripts/demo_scanline.py --out outputs/demo
+
+# 生成 VisionTrain v5 合成数据
+py -3 scripts/generate_visiontrain_dataset.py `
+  --out outputs/synthetic/visiontrain-glue-binary-v5 `
+  --samples 60 `
+  --seed 20261120
 
 # 棋盘格标定（需自备标定图）
 py -3 scripts/calibrate_board.py --images <dir> --cols 13 --rows 9 --square-mm 4
 
-# 批量评测
-py -3 scripts/eval_measure.py --images <dir> --labels <dir> --config configs/default.yaml
+# 导出 VisionTrain 二分类标注
+py -3 scripts/export_visiontrain_annotations.py `
+  --source outputs/synthetic/visiontrain-glue-binary-v5 `
+  --out outputs/visiontrain-export/visiontrain-glue-binary-v5-full
 ```
-
-（脚本随 P1 逐步补齐；命令以 `scripts/` 实际入口为准。）
 
 ---
 
@@ -277,13 +285,12 @@ py -3 scripts/eval_measure.py --images <dir> --labels <dir> --config configs/def
 ## 10. 目录速查
 
 ```
-algo/              算法实现（types/config/geometry/preprocess/...）
-configs/           默认配置与实验配置
-scripts/           可执行入口（demo / 标定 / 报告 / 流程图）
+algo/              分割接口、扫描量测、判定、标定
+configs/           主线配置
+scripts/           可执行入口（数据集 / 导出 / 标定 / 主线演示）
 tests/             单元测试
-docs/algo/         进度、方案、P0 规范、接口、任务、报告、图表
-docs/hardware/     BOM、采购记录、相机与镜头选型
-docs/project/      产品路线、导师汇报和项目管理材料
+docs/algo/         当前技术路线文档
 data/              数据规范与 manifest（图像不入库）
+archive/           旧算法与非主线文档
 references/        参考资料（source 不入库）
 ```

@@ -1,12 +1,15 @@
-"""单帧检测流水线。
+"""旋转扫描矩形胶条检测主线。
 
-流程（对应论文第 5 章 5.2.3 的图像处理，以及第 4 章的量测链路）：
+流程：
 
-    RoI 定位 → 裁剪 → 去噪 → 分割 → 形态学 → 面积/骨架/宽度 → 反光检测 → 判定
+    胶条分割模型
+      -> 概率图/掩膜二值化与形态学后处理
+      -> 沿胶条方向生成旋转扫描矩形
+      -> 每个矩形内寻找左右边缘点
+      -> 左右边缘点中点形成中心曲线
+      -> 断胶、宽窄不一致、弯曲判定
 
-设计约束（见 docs/algo/interfaces.md）：
-- 缺标定 / 缺模型时降级，并把降级原因写进 ``FrameResult.degradations``（不静默）；
-- 所有阈值来自配置，代码不硬编码。
+分割模型通过 ``GlueSegmenter`` 注入；无模型时不会静默切换到其他算法。
 """
 
 from __future__ import annotations
@@ -18,124 +21,124 @@ import numpy as np
 from .calib import Calibration
 from .config import Config
 from .decide import decide
-from .measure import measure_mask
-from .models import ReflectionDetector, RoILocator, build_reflector, build_roi_locator
-from .preprocess import median_denoise, morph_open_close, segment, wavelet_denoise
-from .types import Box, FrameResult
+from .maskops import connected_components
+from .scanline import apply_scan_result, scan_glue_strip
+from .segmentation import (
+    DevelopmentThresholdSegmenter,
+    GlueSegmenter,
+    SegmentationInfo,
+    build_segmenter,
+    postprocess_segmentation,
+)
+from .types import Box, FrameResult, MeasureResult
 
 
 class GlueInspector:
-    """胶条检测器：把各模块串成单帧流水线。"""
+    """胶条分割与旋转扫描量测器。"""
 
     def __init__(
         self,
         cfg: Config,
-        locator: RoILocator | None = None,
-        reflector: ReflectionDetector | None = None,
+        segmenter: GlueSegmenter | None,
         calib: Calibration | None = None,
     ):
         self.cfg = cfg
-        self.degradations: list[str] = []
-
-        if locator is None:
-            locator, note = build_roi_locator(cfg)
-            if note:
-                self.degradations.append(note)
-        self.locator = locator
-
-        if reflector is None:
-            reflector, note = build_reflector(cfg)
-            if note:
-                self.degradations.append(note)
-        self.reflector = reflector
-
+        self.segmenter = build_segmenter(cfg, segmenter)
         self.calib = calib
         self.mm_per_px = self._resolve_mm_per_px(calib)
         self.min_area_px = int(cfg.get("measure.min_area_px", 200))
-        self.morph_ksize = int(cfg.get("preprocess.morph.ksize", 5))
-        self.morph_order = str(cfg.get("preprocess.morph.order", "open-close"))
-        self.denoise_method = str(cfg.get("preprocess.denoise.method", "wavelet"))
-        self.wavelet_level = int(cfg.get("preprocess.denoise.level", 2))
-        self.wavelet_mode = str(cfg.get("preprocess.denoise.mode", "hard"))
-        self.segment_method = str(cfg.get("preprocess.segment.method", "otsu"))
-        self.bfs_connectivity = int(cfg.get("measure.bfs_connectivity", 8))
+        self.mask_connectivity = int(cfg.get("measure.mask_connectivity", 8))
+        self.degradations: list[str] = []
+        if isinstance(self.segmenter, DevelopmentThresholdSegmenter):
+            self.degradations.append(
+                "分割模型不可用：当前使用开发阈值 fallback，结果不可作为模型验收"
+            )
+        if self.mm_per_px is None:
+            self.degradations.append("未标定：宽度只输出像素，判定跳过毫米宽度项")
 
-    def _resolve_mm_per_px(self, calib: Calibration | None) -> float | None:
-        if calib is not None and calib.mm_per_px:
-            return float(calib.mm_per_px)
-        cfg_value = self.cfg.get("calib.mm_per_px")
-        if cfg_value:
-            return float(cfg_value)
-        return None
+    @classmethod
+    def from_config(
+        cls,
+        cfg: Config,
+        segmenter: GlueSegmenter | None = None,
+        calib: Calibration | None = None,
+    ) -> "GlueInspector":
+        """按配置构建；仅在显式配置时允许开发阈值 fallback。"""
+
+        return cls(cfg, segmenter=segmenter, calib=calib)
 
     def run(self, image: np.ndarray) -> FrameResult:
-        """对单帧图像执行完整检测，返回结构化的 FrameResult。"""
+        """对单帧图像执行分割、扫描量测和判定。"""
+
         timings: dict[str, float] = {}
 
-        t0 = time.perf_counter()
-        boxes = self.locator.predict(image)
-        timings["locate"] = (time.perf_counter() - t0) * 1000.0
+        started = time.perf_counter()
+        model_output = self.segmenter.predict(image)
+        segmentation_output = postprocess_segmentation(model_output, self.cfg)
+        timings["segment"] = (time.perf_counter() - started) * 1000.0
+        mask = segmentation_output.mask
 
-        n_rois = len(boxes)
-        roi: Box | None = boxes[0] if boxes else None
-        crop = self._crop(image, roi)
-
-        t0 = time.perf_counter()
-        denoised = self._denoise(crop)
-        timings["denoise"] = (time.perf_counter() - t0) * 1000.0
-
-        t0 = time.perf_counter()
-        _, mask = segment(denoised, self.segment_method)
-        mask = morph_open_close(mask, self.morph_ksize, self.morph_order)
-        timings["segment"] = (time.perf_counter() - t0) * 1000.0
-
-        t0 = time.perf_counter()
-        measure = measure_mask(
+        started = time.perf_counter()
+        _, components = connected_components(
             mask,
-            seeds=None,
-            connectivity=self.bfs_connectivity,
-            min_area_px=self.min_area_px,
-            mm_per_px=self.mm_per_px,
+            connectivity=self.mask_connectivity,
+            min_area=self.min_area_px,
         )
-        timings["measure"] = (time.perf_counter() - t0) * 1000.0
+        measure = self._build_measure(mask, components)
+        scan = scan_glue_strip(mask, self.cfg, mm_per_px=self.mm_per_px)
+        apply_scan_result(measure, scan)
+        timings["measure"] = (time.perf_counter() - started) * 1000.0
 
-        t0 = time.perf_counter()
-        reflection = self.reflector.predict(image)
-        timings["reflect"] = (time.perf_counter() - t0) * 1000.0
+        started = time.perf_counter()
+        verdict = decide(measure, self.cfg)
+        timings["decide"] = (time.perf_counter() - started) * 1000.0
+        timings["total"] = sum(
+            value for key, value in timings.items() if key != "total"
+        )
 
-        verdict = decide(measure, n_rois, reflection, self.cfg)
-        timings["total"] = sum(v for k, v in timings.items() if k != "total")
-
-        degradations = list(self.degradations)
-        if self.mm_per_px is None:
-            degradations.append("未标定：宽度只输出像素，判定跳过宽度项")
+        pixels = int(mask.size)
+        foreground_ratio = (
+            float(np.count_nonzero(mask)) / float(pixels) if pixels else 0.0
+        )
+        info = SegmentationInfo(
+            source=segmentation_output.source,
+            threshold=segmentation_output.threshold,
+            fallback=segmentation_output.fallback,
+            foreground_ratio=foreground_ratio,
+        )
 
         return FrameResult(
             verdict=verdict,
             measure=measure,
-            reflection=reflection,
-            roi=roi,
-            timings_ms={k: round(v, 3) for k, v in timings.items()},
-            degradations=degradations,
+            segmentation=info.as_dict(),
+            roi=measure.bbox,
+            timings_ms={
+                key: round(value, 3) for key, value in timings.items()
+            },
+            degradations=list(self.degradations),
         )
 
-    # ------------------------------------------------------------------ #
+    @staticmethod
+    def _build_measure(
+        mask: np.ndarray,
+        components: list,
+    ) -> MeasureResult:
+        ys, xs = np.nonzero(mask)
+        if len(xs) == 0:
+            return MeasureResult()
+        return MeasureResult(
+            area_px=float(len(xs)),
+            n_components=len(components),
+            bbox=Box(
+                float(xs.min()),
+                float(ys.min()),
+                float(xs.max() + 1),
+                float(ys.max() + 1),
+            ),
+        )
 
-    def _crop(self, image: np.ndarray, roi: Box | None) -> np.ndarray:
-        if roi is None:
-            return image
-        h, w = image.shape[:2]
-        x1 = max(0, int(np.floor(roi.x1)))
-        y1 = max(0, int(np.floor(roi.y1)))
-        x2 = min(w, int(np.ceil(roi.x2)))
-        y2 = min(h, int(np.ceil(roi.y2)))
-        if x2 - x1 < 2 or y2 - y1 < 2:
-            return image
-        return image[y1:y2, x1:x2]
-
-    def _denoise(self, image: np.ndarray) -> np.ndarray:
-        if self.denoise_method == "wavelet":
-            return wavelet_denoise(image, level=self.wavelet_level, mode=self.wavelet_mode)
-        if self.denoise_method == "median":
-            return median_denoise(image, ksize=5)
-        return image
+    def _resolve_mm_per_px(self, calib: Calibration | None) -> float | None:
+        if calib is not None and calib.mm_per_px:
+            return float(calib.mm_per_px)
+        value = self.cfg.get("calib.mm_per_px")
+        return float(value) if value else None

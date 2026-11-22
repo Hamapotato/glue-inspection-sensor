@@ -1,145 +1,160 @@
 # 接口契约
 
-> 目的：让传统链路（C 组）与深度学习（B 组）可以并行开发，互不阻塞。
-> 实现可以替换，接口签名与语义不能随意改。
+## 1. 分割模型接口
 
----
+```python
+class GlueSegmenter(Protocol):
+    def predict(self, image: np.ndarray) -> SegmentationOutput: ...
+```
 
-## 1. 全局约定
+`SegmentationOutput` 字段：
 
-| 项 | 约定 |
+| 字段 | 含义 |
 |---|---|
-| 图像 | `np.ndarray`，单帧；灰度 `(H,W) uint8` 或彩色 `(H,W,3) uint8`（BGR） |
-| 坐标 | 像素坐标系，原点左上，`x` 向右，`y` 向下 |
-| 框 | `(x1, y1, x2, y2)`，且 `x1 ≤ x2`、`y1 ≤ y2`，浮点，允许落在图像边界上 |
-| 分数 | `[0,1]`，越大越可信；IoU 家族的相似度可为负（GIoU/DIoU/CIoU） |
-| 单位 | 长度内部一律用像素；转毫米只在 `measure` 输出时做 |
-| 时间 | 毫秒，浮点 |
+| `mask` | 概率图或二值掩膜 |
+| `source` | 模型或数据源标识 |
+| `threshold` | 模型建议阈值，流水线可由配置覆盖 |
+| `fallback` | 是否为开发 fallback |
+| `score_map` | 可选原始概率图 |
 
----
+流水线会把概率统一到 `[0,1]`，按 `segmentation.threshold` 二值化，再执行
+`segmentation.morph` 配置的开闭运算。
 
-## 2. 数据结构
+无分割模型时不得静默改用旧算法。只有显式设置：
 
-定义在 `algo/types.py`：
+```yaml
+segmentation:
+  mode: development_threshold
+```
+
+才允许启用仅供冒烟的阈值 fallback，并在结果中记录降级。
+
+## 2. 检测器入口
 
 ```python
-Box(x1, y1, x2, y2, score=1.0, label=0)
-MeasureResult(area_px, length_px, width_px, width_mm, n_components, bbox)
-ReflectionResult(has_reflection, boxes, max_score)
-Verdict(code, severity, message, details)
-FrameResult(verdict, measure, reflection, roi, timings_ms)
+inspector = GlueInspector(
+    cfg=config,
+    segmenter=model_segmenter,
+    calib=calibration,
+)
+result = inspector.run(image)
 ```
 
-`Verdict.code` 枚举：`OK` / `BROKEN` / `TOO_NARROW` / `TOO_WIDE` / `WARN_NARROW` / `WARN_WIDE` / `REFLECTION_SUSPECT`。
-`Verdict.severity`：`none` / `warn` / `alarm`。
+`GlueInspector` 不再接收 RoI 定位器或反光检测器。
 
----
+## 3. 扫描窗
 
-## 3. 三个核心接口
+`ScanWindow` 关键字段：
 
-### 3.1 RoI 定位
+| 字段 | 含义 |
+|---|---|
+| `cx, cy` | 扫描窗中心，原图像素坐标 |
+| `angle_deg` | 沿局部涂胶方向的旋转角 |
+| `length_px` | 沿胶条方向的窗口长度 |
+| `window_width_px` | 沿法向的窗口宽度，默认至少 3 倍胶宽 |
+| `width_px` | 左右边缘点之间的实际胶宽 |
+| `left/right` | 左右边缘点 |
+| `midpoint` | 左右边缘点中点 |
+| `valid` | 是否找到左右两个边缘点 |
+| `break_detected` | 是否属于断胶窗 |
 
-```python
-class RoILocator(Protocol):
-    def predict(self, image: np.ndarray) -> list[Box]:
-        """返回按 score 降序的候选框；无目标时返回空列表。"""
-```
+## 4. 输出结构
 
-- 实现：`RPNLocator`（论文 3.1）/ `HeuristicLocator`（占位，阈值+轮廓）
-- 约束：至少返回 0 个框；多于 1 个框时上层按论文判定逻辑判"断胶"（见 decide）
-- 缺模型文件时：抛 `ModelNotAvailableError`，由 pipeline 决定降级
-
-### 3.2 反光检测
-
-```python
-class ReflectionDetector(Protocol):
-    def predict(self, image: np.ndarray) -> ReflectionResult:
-        """has_reflection=True 当且仅当存在 score ≥ threshold 的框。"""
-```
-
-- 实现：`YOLO5FLDetector`（论文 3.3）/ `NullReflector`（永远 False）/ `HeuristicReflector`（高亮区域）
-
-### 3.3 量测
-
-```python
-class Measurer(Protocol):
-    def measure(self, roi_img: np.ndarray, seeds: np.ndarray | None = None) -> MeasureResult:
-        """roi_img 为裁出的胶条图像；seeds 为置信点 (N,2) 的 (x,y)。"""
-```
-
-- 内部顺序固定：去噪 → 分割 → 形态学 → BFS 面积 + 骨架长度 → 宽度
-- `width_mm` 由 `Calibration.scale` 换算；未标定时 `width_mm = 0` 且 `details` 标记 `uncalibrated`
-
----
-
-## 4. 标定接口
-
-```python
-@dataclass
-class Calibration:
-    K: np.ndarray | None          # 3x3 内参
-    dist: np.ndarray | None       # 畸变
-    rms: float                    # 重投影误差 RMS
-    mm_per_px: float | None       # 工作距离处尺度
-    H: np.ndarray | None          # 平面单应（3x3），可选
-
-    def px_to_mm(self, px: float) -> float: ...
-```
-
-- `calibrate_from_images(images, pattern, square_mm)`：棋盘格标定
-- `calibrate_from_points(obj_pts, img_pts, image_size)`：已知点对（测试/离线用）
-- 未标定时 `mm_per_px=None`，上层必须能降级运行
-
----
-
-## 5. 配置键（与 `configs/default.yaml` 一一对应）
-
-```
-input:      {resize_long_side, to_gray}
-calib:      {enabled, mm_per_px, pattern:[cols,rows], square_mm}
-preprocess: {denoise:{method,wavelet,level,mode}, segment:{method}, morph:{ksize,order}}
-measure:    {bfs_connectivity, min_area_px, skeleton:{method},
-             width:{standard_mm, warn_delta_mm, alarm_delta_mm}}
-locate:     {enabled, type, weights, score_thr, nms:{type,thr}, anchors:{k,iters}}
-reflect:    {enabled, type, weights, score_thr, input_size, high_value, min_area_px}
-decide:     {broken_min_rois, reflection_override}
-runtime:    {device, half}
-synthetic_dataset:
-            {version,image_size,samples,seed,frames_per_object,centerline_points,
-             split,scenario_weights,scene,glue,variants,defects,camera}
-```
-
-约定：**代码里不允许出现业务阈值字面量**，全部从配置读。
-
-`synthetic_dataset` 仅控制 VisionTrain 合成训练集生成。所有输出均带
-`source=synthetic` 与 `acceptance_eligible=false`，不得用于真实指标验收。
-
----
-
-## 6. 结果输出
-
-`FrameResult.as_dict()` 即对外 JSON，字段稳定，可直接入库/上报：
+`FrameResult.as_dict()` 示例：
 
 ```json
 {
-  "verdict": {"code":"TOO_NARROW","severity":"alarm","message":"...","details":{}},
-  "measure": {"area_px":12345.0,"length_px":312.0,"width_px":39.6,"width_mm":7.42,
-              "n_components":1,"bbox":{"x1":0,"y1":0,"x2":0,"y2":0,"score":1.0,"label":0}},
-  "reflection": {"has_reflection":false,"boxes":[],"max_score":0.0},
-  "roi": {"x1":0,"y1":0,"x2":0,"y2":0,"score":0.99,"label":0},
-  "timings_ms": {"preprocess":3.1,"locate":12.0,"measure":4.2,"total":19.3}
+  "verdict": {
+    "code": "OK",
+    "severity": "none",
+    "message": "合格",
+    "details": {}
+  },
+  "measure": {
+    "width_mm": 10.2,
+    "min_width_mm": 9.9,
+    "max_width_mm": 10.5,
+    "width_std_mm": 0.16,
+    "curve_deviation_mm": 1.1,
+    "break_windows": 0,
+    "scan_windows": [
+      {
+        "window_width_px": 120.0,
+        "left": [80.0, 100.0],
+        "right": [120.0, 100.0],
+        "midpoint": [100.0, 100.0]
+      }
+    ],
+    "centerline_segments": []
+  },
+  "segmentation": {
+    "source": "visiontrain_model",
+    "threshold": 0.5,
+    "fallback": false,
+    "foreground_ratio": 0.08
+  },
+  "degradations": []
 }
 ```
 
----
+## 5. 配置键
 
-## 7. 降级策略（必须实现，否则没法在缺模块时跑）
+```yaml
+segmentation:
+  mode: external
+  model_path: null
+  threshold: 0.5
+  morph:
+    ksize: 5
+    order: open-close
 
-| 缺失 | 降级行为 | 影响 |
-|---|---|---|
-| 标定文件 | `width_mm=0`，`details.uncalibrated=True` | 只能出像素宽度 |
-| RPN 权重 | 用 `HeuristicLocator` 裁整图 | 定位指标不可用 |
-| 反光权重 | `NullReflector`（永不判反光） | 反光分支不可用 |
-| GPU | CPU 推理 | 速度慢，功能不变 |
+measure:
+  mask_connectivity: 8
+  min_area_px: 200
+  scan:
+    enabled: true
+    step_px: 12
+    window_length_px: 24
+    window_width_factor: 3.0
+    max_ray_px: 180
+    ray_step_px: 0.5
+    break_min_missing_windows: 1
+    centerline_smooth_window: 7
+    width_range_alarm_mm: 1.2
+    width_std_alarm_mm: 0.30
+    curve_warn_mm: 2.0
+    curve_alarm_mm: 3.0
+```
 
-降级必须写进结果字段（`details`），禁止静默降级。
+### 5.1 M06 同轨迹验证集配置
+
+```yaml
+m06_validation:
+  version: m06-glue-matched-v1
+  trajectory_id: m06_fixed_path_v1
+  seed: 20261121
+  total_samples: 100
+  image_size: [1080, 1440]
+  pixel_format: Mono8
+  counts:
+    reference_good: 1
+    normal: 19
+    break: 20
+    narrow: 20
+    wide: 20
+    bend: 20
+  fixed_trajectory: {}
+  variants: {}
+```
+
+`fixed_trajectory` 中所有样本共用同一条标准胶路；`variants` 控制断胶长度、
+宽度缩放和弯曲幅值。完整参数见 `configs/default.yaml`。这些参数只用于
+生成合成验证数据，不是产线业务阈值。
+
+## 6. 降级规则
+
+| 缺失 | 行为 |
+|---|---|
+| 分割模型 | 默认报错；仅显式配置开发 fallback 时运行并记录降级 |
+| 标定 | 输出像素宽度，跳过毫米报警，记录 `uncalibrated` |
+| GPU | 允许 CPU，但必须重新统计耗时 |

@@ -1,4 +1,4 @@
-"""核心数据结构。"""
+"""当前旋转扫描量测主线的数据结构。"""
 
 from __future__ import annotations
 
@@ -55,44 +55,64 @@ class Box:
 
 
 @dataclass
+class ScanWindow:
+    """沿胶条方向生成的一个旋转扫描矩形。"""
+
+    index: int
+    cx: float
+    cy: float
+    angle_deg: float
+    length_px: float
+    window_width_px: float = 0.0
+    width_px: float = 0.0
+    left: tuple[float, float] | None = None
+    right: tuple[float, float] | None = None
+    midpoint: tuple[float, float] | None = None
+    valid: bool = False
+    break_detected: bool = False
+
+    def as_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass
 class MeasureResult:
-    """一条胶条的几何量测结果（论文 4.4）。"""
+    """一条胶条的扫描量测结果。"""
 
     area_px: float = 0.0
-    length_px: float = 0.0
     width_px: float = 0.0
     width_mm: float = 0.0
     n_components: int = 0
     bbox: Box | None = None
+    min_width_px: float = 0.0
+    max_width_px: float = 0.0
+    width_std_px: float = 0.0
+    min_width_mm: float = 0.0
+    max_width_mm: float = 0.0
+    width_std_mm: float = 0.0
+    curve_deviation_px: float = 0.0
+    curve_deviation_mm: float = 0.0
+    break_windows: int = 0
+    missing_edge_windows: int = 0
+    scan_windows: list[ScanWindow] = field(default_factory=list)
+    centerline_segments: list[list[tuple[float, float]]] = field(default_factory=list)
 
     def as_dict(self) -> dict[str, Any]:
         d = asdict(self)
         if self.bbox is not None:
             d["bbox"] = self.bbox.as_dict()
+        d["scan_windows"] = [window.as_dict() for window in self.scan_windows]
+        d["centerline_segments"] = [
+            [[float(x), float(y)] for x, y in segment]
+            for segment in self.centerline_segments
+        ]
         return d
 
 
 @dataclass
-class ReflectionResult:
-    """反光检测结果（论文 3.3）。"""
-
-    has_reflection: bool = False
-    boxes: list[Box] = field(default_factory=list)
-    max_score: float = 0.0
-
-    def as_dict(self) -> dict[str, Any]:
-        return {
-            "has_reflection": self.has_reflection,
-            "boxes": [b.as_dict() for b in self.boxes],
-            "max_score": self.max_score,
-        }
-
-
-@dataclass
 class Verdict:
-    """缺陷判定结论（论文 5.3.3）。"""
+    """缺陷判定结论。"""
 
-    # OK / BROKEN / TOO_WIDE / TOO_NARROW / WARN_WIDE / WARN_NARROW / REFLECTION_SUSPECT
     code: str = "OK"
     severity: str = "none"  # none / warn / alarm
     message: str = ""
@@ -108,7 +128,7 @@ class FrameResult:
 
     verdict: Verdict
     measure: MeasureResult
-    reflection: ReflectionResult
+    segmentation: dict[str, Any]
     roi: Box | None = None
     timings_ms: dict[str, float] = field(default_factory=dict)
     degradations: list[str] = field(default_factory=list)
@@ -117,7 +137,7 @@ class FrameResult:
         return {
             "verdict": self.verdict.as_dict(),
             "measure": self.measure.as_dict(),
-            "reflection": self.reflection.as_dict(),
+            "segmentation": dict(self.segmentation),
             "roi": None if self.roi is None else self.roi.as_dict(),
             "timings_ms": dict(self.timings_ms),
             "degradations": list(self.degradations),
