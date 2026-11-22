@@ -28,6 +28,13 @@
 |---|---|
 | [M06 首轮部署包](../deployment/visionmaster/glue_m06_inspection_v1/README.md) | 正式命名的 VM 方案、VM 440 CPU 模型、M06 配套验证集和当前事实边界 |
 
+## 项目与流程
+
+| 文档 | 内容 |
+|---|---|
+| [Git 操作规范](project/git-workflow.md) | 分支模型、提交规范、同步/变基/推送与清理流程 |
+| [论文算法 vs 产品算法对照](project/thesis-vs-product-algorithm.md) | 两份材料的算法拆解、逐项对比、选型建议与证据引用 |
+
 ## 归档
 
 | 文档 | 内容 |
