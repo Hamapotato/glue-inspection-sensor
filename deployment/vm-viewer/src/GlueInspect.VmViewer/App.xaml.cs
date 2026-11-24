@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Windows;
 using System.Windows.Media;
@@ -8,6 +9,10 @@ using GlueInspect.VmViewer.ViewModels;
 namespace GlueInspect.VmViewer;
 
 /// <summary>VM 结果查看器启动入口。只负责显示 VM 输出，不包含检测算法。</summary>
+[SuppressMessage(
+    "Design",
+    "CA1001:Types that own disposable fields should be disposable",
+    Justification = "WPF Application owns the view model for the process lifetime and disposes it in OnExit.")]
 public partial class App : Application
 {
     private MainViewModel? _viewModel;

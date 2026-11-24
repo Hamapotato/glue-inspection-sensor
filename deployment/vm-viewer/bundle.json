@@ -35,6 +35,7 @@
   },
   "verification": {
     "build": "0 warnings, 0 errors",
+    "dotnet_analysis": "latest-recommended, 0 warnings, 0 errors",
     "smoke_tests": [
       "TCP time-tagged OK/NG receive",
       "1 ms timestamp matching",

@@ -119,6 +119,8 @@ $dotnet = "D:\WORK\.dotnet-sdk-10.0.402\dotnet.exe"
 当前验证结果是“前端链路与数据管理冒烟通过”，不是检测准确率、生产节拍或
 长期稳定性验收。
 
+常规 Release 构建和 .NET `latest-recommended` 分析规则均为 0 警告、0 错误。
+
 ## 6. 当前边界
 
 - 仅支持 Windows WPF，目标框架为 `net10.0-windows`；

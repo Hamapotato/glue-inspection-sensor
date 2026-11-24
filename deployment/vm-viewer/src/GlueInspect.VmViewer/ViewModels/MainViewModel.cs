@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Runtime.CompilerServices;
 using System.Windows;
@@ -273,7 +274,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
                 var record = await _historyStore.SaveAsync(message, snapshot);
                 HistoryRecords.Insert(0, record);
-                HistoryCount = HistoryRecords.Count.ToString();
+                HistoryCount = HistoryRecords.Count.ToString(CultureInfo.CurrentCulture);
                 Status = record.HasDegradation
                     ? $"{message.Verdict} 已保存，但图片不完整：{string.Join("、", record.Degradations)}"
                     : $"{message.Verdict} 已保存到历史记录 · {record.SequenceText}";
@@ -432,7 +433,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             HistoryRecords.Clear();
             foreach (var record in records)
                 HistoryRecords.Add(record);
-            HistoryCount = HistoryRecords.Count.ToString();
+            HistoryCount = HistoryRecords.Count.ToString(CultureInfo.CurrentCulture);
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
@@ -445,8 +446,10 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         try
         {
             var snapshot = ImagePairService.FindLatest(Folder);
-            ImageCount = snapshot.ImageCount.ToString();
-            LastUpdate = snapshot.UpdatedAt?.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss") ?? "—";
+            ImageCount = snapshot.ImageCount.ToString(CultureInfo.CurrentCulture);
+            LastUpdate = snapshot.UpdatedAt?.ToLocalTime().ToString(
+                "yyyy-MM-dd HH:mm:ss",
+                CultureInfo.CurrentCulture) ?? "—";
             if (_historyMode)
                 return;
 
@@ -500,12 +503,12 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         VerdictBrush = brush;
     }
 
-    private static Brush VerdictBrushFor(string verdict) =>
+    private static SolidColorBrush VerdictBrushFor(string verdict) =>
         new SolidColorBrush(verdict == "OK"
             ? Color.FromRgb(0x2E, 0xC4, 0x8C)
             : Color.FromRgb(0xEF, 0x44, 0x59));
 
-    private static BitmapSource LoadImage(string path)
+    private static BitmapImage LoadImage(string path)
     {
         using var file = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
         using var stream = new MemoryStream();
@@ -520,7 +523,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         return image;
     }
 
-    private static BitmapSource? TryLoadImage(string? path)
+    private static BitmapImage? TryLoadImage(string? path)
     {
         if (path is null || !File.Exists(path))
             return null;

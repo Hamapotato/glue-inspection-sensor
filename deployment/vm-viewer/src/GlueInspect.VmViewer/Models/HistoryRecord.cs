@@ -32,7 +32,9 @@ public sealed class HistoryRecord
     public string? CaliperPath => ImagePath(CaliperImageFile);
 
     [JsonIgnore]
-    public string TimeText => ReceivedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss");
+    public string TimeText => ReceivedAt.ToLocalTime().ToString(
+        "yyyy-MM-dd HH:mm:ss",
+        CultureInfo.CurrentCulture);
 
     [JsonIgnore]
     public string SequenceText
@@ -58,11 +60,11 @@ public sealed class HistoryRecord
         get
         {
             var original = OriginalTimestamp is { } originalTime
-                ? originalTime.ToString("HH:mm:ss.fff")
-                : OriginalSequence?.ToString() ?? "?";
+                ? originalTime.ToString("HH:mm:ss.fff", CultureInfo.CurrentCulture)
+                : OriginalSequence?.ToString(CultureInfo.CurrentCulture) ?? "?";
             var caliper = CaliperTimestamp is { } caliperTime
-                ? caliperTime.ToString("HH:mm:ss.fff")
-                : CaliperSequence?.ToString() ?? "?";
+                ? caliperTime.ToString("HH:mm:ss.fff", CultureInfo.CurrentCulture)
+                : CaliperSequence?.ToString(CultureInfo.CurrentCulture) ?? "?";
             return $"原图 {original} · 卡尺 {caliper}";
         }
     }
