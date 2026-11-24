@@ -21,6 +21,8 @@
 - 归档 VisionMaster 4.4 首轮方案、VM 440 CPU 分割模型和配套 M06 数据；
 - 首轮方案完成正式命名：`glue_m06_inspection_v1.sol`；
 - 用户人工运行观察到方案可识别断胶、过宽、过窄和气泡；
+- 完成独立 VM 结果查看前端：TCP 接收 OK/NG，按时间绑定原图和卡尺图，
+  保存历史并支持回看与确认式清理；
 - 保留单相机标定和像素到毫米换算能力；
 - 保留 VisionTrain `background/glue` 数据生成与导出能力。
 
@@ -63,6 +65,7 @@ M06 同轨迹数据检查分割、边缘对和缺陷输出。
 | VisionTrain v5 数据 | `outputs/synthetic/visiontrain-glue-binary-v5/` | 已生成，非验收数据 |
 | M06 同轨迹验证集 | `outputs/m06-validation/glue-m06-matched-v1-100/` | 已生成，非验收数据 |
 | M06 首轮 VM 部署包 | `deployment/visionmaster/glue_m06_inspection_v1/` | 已归档，首轮人工运行 |
+| VM 结果查看前端 | `deployment/vm-viewer/` | 已完成；通信、时间绑定、历史与清理冒烟通过 |
 | 旧实现归档 | `archive/legacy-paper-algorithm/` | 已完成 |
 
 ## 4. 下一步

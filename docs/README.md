@@ -27,6 +27,7 @@
 | 文档 | 内容 |
 |---|---|
 | [M06 首轮部署包](../deployment/visionmaster/glue_m06_inspection_v1/README.md) | 正式命名的 VM 方案、VM 440 CPU 模型、M06 配套验证集和当前事实边界 |
+| [VM 结果查看器](../deployment/vm-viewer/README.md) | 接收 VM 结果、按时间绑定双图、历史保存/回看、清理功能、构建和冒烟测试 |
 
 ## 项目与流程
 

@@ -1,0 +1,95 @@
+<Application x:Class="GlueInspect.VmViewer.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Application.Resources>
+        <ResourceDictionary>
+            <FontFamily x:Key="AppFont">Microsoft YaHei UI</FontFamily>
+
+            <SolidColorBrush x:Key="AppBgBrush" Color="#0B0F14" />
+            <SolidColorBrush x:Key="PanelBrush" Color="#121821" />
+            <SolidColorBrush x:Key="PanelRaisedBrush" Color="#18212C" />
+            <SolidColorBrush x:Key="LineBrush" Color="#2A3442" />
+            <SolidColorBrush x:Key="TextBrush" Color="#FFFFFF" />
+            <SolidColorBrush x:Key="MutedBrush" Color="#E2E8F0" />
+            <SolidColorBrush x:Key="AccentBrush" Color="#4CC9F0" />
+            <SolidColorBrush x:Key="AccentDarkBrush" Color="#173847" />
+
+            <Style TargetType="Window">
+                <Setter Property="FontFamily" Value="{StaticResource AppFont}" />
+                <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+                <Setter Property="Background" Value="{StaticResource AppBgBrush}" />
+            </Style>
+
+            <Style x:Key="Card" TargetType="Border">
+                <Setter Property="Background" Value="{StaticResource PanelBrush}" />
+                <Setter Property="BorderBrush" Value="{StaticResource LineBrush}" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="CornerRadius" Value="12" />
+            </Style>
+
+            <Style x:Key="Title" TargetType="TextBlock">
+                <Setter Property="FontSize" Value="20" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+                <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+            </Style>
+
+            <Style x:Key="SectionTitle" TargetType="TextBlock">
+                <Setter Property="FontSize" Value="14" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+                <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+            </Style>
+
+            <Style x:Key="Hint" TargetType="TextBlock">
+                <Setter Property="FontSize" Value="12" />
+                <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
+            </Style>
+
+            <Style x:Key="ToolButton" TargetType="Button">
+                <Setter Property="Background" Value="{StaticResource PanelRaisedBrush}" />
+                <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+                <Setter Property="BorderBrush" Value="{StaticResource LineBrush}" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="Padding" Value="14,8" />
+                <Setter Property="Cursor" Value="Hand" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Button">
+                            <Border x:Name="Root"
+                                    Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                    CornerRadius="7">
+                                <ContentPresenter HorizontalAlignment="Center"
+                                                  VerticalAlignment="Center"
+                                                  Margin="{TemplateBinding Padding}" />
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Root" Property="Background" Value="#223040" />
+                                    <Setter TargetName="Root" Property="BorderBrush" Value="#3A4A5D" />
+                                </Trigger>
+                                <Trigger Property="IsPressed" Value="True">
+                                    <Setter TargetName="Root" Property="Background" Value="#0F151D" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <Style x:Key="PrimaryButton" TargetType="Button" BasedOn="{StaticResource ToolButton}">
+                <Setter Property="Background" Value="{StaticResource AccentDarkBrush}" />
+                <Setter Property="BorderBrush" Value="#2E7894" />
+            </Style>
+
+            <Style x:Key="PathBox" TargetType="TextBox">
+                <Setter Property="Background" Value="#0E141C" />
+                <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+                <Setter Property="BorderBrush" Value="{StaticResource LineBrush}" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="Padding" Value="10,7" />
+                <Setter Property="VerticalContentAlignment" Value="Center" />
+            </Style>
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>

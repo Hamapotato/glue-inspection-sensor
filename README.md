@@ -26,6 +26,7 @@ GitHub：[Hamapotato/glue-inspection-sensor](https://github.com/Hamapotato/glue-
 - [x] 归档旧 RPN、YOLO 反光、面积/骨架平均宽度等实现
 - [x] 生成 `visiontrain-glue-binary-v5` 合成训练与导出数据
 - [x] 完成 VisionMaster 首轮方案运行、正式命名和部署资产归档
+- [x] 完成 VM 结果查看前端、TCP 通信、时间绑定、历史回看和清理
 - [ ] 训练并部署经真实数据验证的胶条/背景分割模型
 - [ ] 完成真实相机标定、尺寸验证和缺陷验收
 
@@ -61,6 +62,7 @@ GitHub：[Hamapotato/glue-inspection-sensor](https://github.com/Hamapotato/glue-
 - [VisionMaster 纯 VM 主线](docs/algo/visionmaster-pure-vm-mainline.md)
 - [VisionMaster 拖拽端到端 SOP](docs/algo/visionmaster-dragdrop-end-to-end.md)
 - [M06 首轮部署包](deployment/visionmaster/glue_m06_inspection_v1/README.md)
+- [VM 结果查看器](deployment/vm-viewer/README.md)
 - [M06 同轨迹验证数据集](docs/algo/m06-matched-validation-dataset.md)
 - [任务清单](docs/algo/tasks.md)
 - [旧论文算法归档](archive/legacy-paper-algorithm/README.md)

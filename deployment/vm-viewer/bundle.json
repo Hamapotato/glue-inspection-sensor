@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "name": "glue-vm-results-viewer",
+  "version": "0.1.0",
+  "status": "smoke_verified",
+  "platform": "windows",
+  "framework": "net10.0-windows",
+  "source": "src/GlueInspect.VmViewer",
+  "defaults": {
+    "images_folder": "D:\\GlueVM\\results",
+    "history_folder": "D:\\GlueVM\\history",
+    "tcp_host": "127.0.0.1",
+    "tcp_port": 5000,
+    "match_window_ms": 2000
+  },
+  "vm_protocol": {
+    "role": "viewer_listens_vm_connects",
+    "transport": "TCP",
+    "preferred_message": "yyyyMMddHHmmssfff|OK",
+    "preferred_message_ng": "yyyyMMddHHmmssfff|NG",
+    "plain_ok_ng_supported": true,
+    "image_prefixes": {
+      "original": "original",
+      "caliper": "caliper"
+    }
+  },
+  "history": {
+    "record_id_format": "yyyyMMddHHmmssfff",
+    "record_files": [
+      "record.json",
+      "original.bmp/png",
+      "caliper.bmp/png"
+    ],
+    "clear_removes_history_and_output_images": true
+  },
+  "verification": {
+    "build": "0 warnings, 0 errors",
+    "smoke_tests": [
+      "TCP time-tagged OK/NG receive",
+      "1 ms timestamp matching",
+      "no stale-image fallback outside match window",
+      "in-progress image write rejection",
+      "time-based history record",
+      "history and output-image cleanup scope"
+    ],
+    "production_acceptance": false
+  },
+  "limitations": [
+    "The viewer does not execute detection algorithms.",
+    "No production accuracy, cycle-time, or long-duration stability acceptance has been completed.",
+    "The default TCP endpoint is local-only and has no authentication or encryption.",
+    "Clear-history permanently deletes local history and supported output images."
+  ]
+}

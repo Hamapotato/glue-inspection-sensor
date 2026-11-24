@@ -9,13 +9,19 @@
 | 部署包 | 软件 | 用途 |
 |---|---|---|
 | [glue_m06_inspection_v1](visionmaster/glue_m06_inspection_v1/README.md) | VisionMaster 4.4 | 首轮胶条缺陷检测方案、VM 440 CPU 分割模型和 M06 配套验证集 |
+| [vm-viewer](vm-viewer/README.md) | .NET 10 / WPF | 接收 VM 的 OK/NG，按时间绑定原图和卡尺图，并提供历史回看与清理 |
 
 ## 目录规则
 
 ```text
 deployment/
-└── visionmaster/
-    └── <方案名>/
+├── visionmaster/
+│   └── <方案名>/
+└── vm-viewer/              # VM 结果前端源码、脚本和冒烟测试
+    ├── README.md
+    ├── src/
+    ├── tests/
+    └── scripts/
         ├── README.md       # 使用说明和当前事实边界
         ├── bundle.json     # 来源、正式命名、哈希和验证状态
         ├── solution/       # 本地 .sol 方案
