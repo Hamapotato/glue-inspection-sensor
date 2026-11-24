@@ -81,6 +81,9 @@ images/m06_000_reference_good_000.png
    数据集不包含独立气泡类别，不能据此统计气泡指标。
 5. 先运行标准模板和正常控制图，要求 `OK` 且 `DefectType=()`。
 6. 再运行异常图，检查是否命中对应 `DefectType`。
+7. 需要实时查看图片和 OK/NG 时，按
+   [VM 结果查看器](../../deployment/vm-viewer/README.md) 配置原图、卡尺图输出
+   和 TCP 结果；逐类统计仍以冻结数据集记录为准。
 
 建议按下面的数据顺序调试：
 

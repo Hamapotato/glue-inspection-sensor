@@ -82,4 +82,20 @@ glue_m06_inspection_v1/
 - 尚未记录 VM 推理与端到端 p50/p95 耗时；
 - 尚不能声明真实产线检出率、误报率或节拍合格。
 
+## 6. 结果输出与前端
+
+VM 端通过“输出图像 + TCP 结果”两条通道接入独立查看器：
+
+```text
+原图模块：original_YYYYMMddHHmmssfff
+卡尺图模块：caliper_YYYYMMddHHmmssfff
+TCP 客户端：127.0.0.1:5000，发送 YYYYMMddHHmmssfff|OK/NG
+```
+
+前端按时间戳绑定两张图片和 OK/NG，并保存 `record.json` 与历史副本。前端的
+构建、历史目录、清理范围和冒烟测试见
+[VM 结果查看器](../../vm-viewer/README.md)。
+
+该链路已验证通信和数据绑定，不等于已经完成 M06 逐类统计或真实产线验收。
+
 来源、SHA-256 和验证边界见 [bundle.json](bundle.json)。

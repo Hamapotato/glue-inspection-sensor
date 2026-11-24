@@ -25,7 +25,7 @@
 
 - **是什么**：以《基于机器视觉的车身涂胶在线检测系统研究》（天津大学硕士学位论文）为起点的涂胶检测传感器复现项目。
 - **不是什么**：不是论文原作者的代码仓库；论文未公开源码、数据与训练参数。
-- **当前阶段**：唯一主线是“胶条分割模型 + 旋转扫描矩形 + 边缘中点曲线”。分割接口、二值后处理、扫描量测、判定和合成链路已完成（44 项主线测试）；尚无已验证的真实分割模型和真实相机指标。旧论文并列算法在 `archive/legacy-paper-algorithm/`。
+- **当前阶段**：唯一算法主线是“胶条分割模型 + 旋转扫描矩形 + 边缘中点曲线”。分割接口、二值后处理、扫描量测、判定和合成链路已完成（48 项 Python 主线测试）；已增加独立 VM 结果查看前端并完成通信、时间绑定、历史与清理冒烟测试。尚无已验收的真实分割指标和真实相机指标。旧论文并列算法在 `archive/legacy-paper-algorithm/`。
 - **事实来源**：`references/source/` 下的 PDF（本地，不入库）。一切关于论文的陈述以原文为准。
 
 ---
@@ -54,6 +54,8 @@
 | `scripts/` | 可执行入口 | 只做编排，不放算法逻辑 |
 | `tests/` | 单元测试 | 新增模块必须带测试 |
 | `docs/algo/` | 算法文档 | 与代码同步更新；`tasks.md` 勾选 |
+| `deployment/visionmaster/` | VM 方案和模型说明 | 说明与 `bundle.json` 入库，二进制资产默认本地保存 |
+| `deployment/vm-viewer/` | VM 结果查看前端 | 独立 WPF 源码、脚本和冒烟测试；不接入检测算法 |
 | `archive/legacy-paper-algorithm/` | 旧论文并列算法 | 只追溯，不导入主包 |
 | `archive/non-mainline-docs/` | BOM、采购、产品路线和汇报材料 | 不进入当前技术路线入口 |
 | `docs/README.md` | 文档总索引 | 新增顶层文档时同步维护 |
@@ -68,6 +70,7 @@
 
 - Python **≥3.10**；推荐 3.12（torch 生态最稳）。3.14 亦可（cv2 5.0 / torch 2.15 可用）。
 - 核心依赖保持最小：`numpy`、`opencv-python`、`pyyaml`。深度学习为**可选依赖**（torch），导入必须放在函数内或 `try/except` 中，保证无模型运行时仍能跑接口、扫描量测和测试。
+- VM 结果查看器是独立 Windows WPF 项目，源码构建要求 .NET 10 SDK；自包含发布版不要求目标电脑安装 .NET。
 - 每个仓库一份独立 venv，不装进系统 Python。
 
 ```powershell
@@ -249,6 +252,9 @@ git -c http.proxy=http://<代理地址>:<端口> `
 # 单元测试（unittest，无需 pytest）
 py -3 -m unittest discover -s tests -v
 
+# VM 结果查看器构建和冒烟测试
+deployment/vm-viewer/scripts/test.ps1
+
 # 合成掩膜主线冒烟
 py -3 scripts/demo_scanline.py --out outputs/demo
 
@@ -291,6 +297,7 @@ algo/              分割接口、扫描量测、判定、标定
 configs/           主线配置
 scripts/           可执行入口（数据集 / 导出 / 标定 / 主线演示）
 tests/             单元测试
+deployment/        VM 方案和独立结果查看前端
 docs/algo/         当前技术路线文档
 data/              数据规范与 manifest（图像不入库）
 archive/           旧算法与非主线文档

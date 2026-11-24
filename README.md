@@ -38,7 +38,7 @@ GitHub：[Hamapotato/glue-inspection-sensor](https://github.com/Hamapotato/glue-
 ├── configs/                 # 主线参数
 ├── scripts/                 # 数据集生成、导出、标定和演示入口
 ├── tests/                   # 主线单元测试
-├── deployment/              # VisionMaster 方案、模型和配套验证集（二进制本地保存）
+├── deployment/              # VM 方案、独立结果查看前端和部署说明
 ├── docs/
 │   ├── README.md            # 文档索引
 │   └── algo/                # 当前技术路线文档
@@ -75,6 +75,9 @@ GitHub：[Hamapotato/glue-inspection-sensor](https://github.com/Hamapotato/glue-
 # 单元测试
 py -3 -m unittest discover -s tests -v
 
+# VM 结果查看器冒烟测试（需要 .NET 10 SDK）
+.\deployment\vm-viewer\scripts\test.ps1
+
 # 合成掩膜主线演示
 py -3 scripts/demo_scanline.py --out outputs/demo
 
@@ -99,3 +102,7 @@ py -3 scripts/generate_m06_validation_dataset.py `
 当前已有 VisionMaster 4.4 首轮方案及 VM 440 CPU 分割模型，并已在用户人工
 运行中观察到断胶、过宽、过窄和气泡响应。尚无逐类命中数、误报率、耗时等
 冻结指标；M06 验证集仍是合成数据，真实相机胶宽和缺陷验收也尚未完成。
+
+VM 结果查看器已完成原图/卡尺图按时间绑定、TCP OK/NG 接收、历史保存、回看和
+确认式清理的前端冒烟验证；该结果只证明前端数据链路可用，不代表检测准确率或
+产线环境已经验收。当前 48 项 Python 主线测试和前端冒烟测试均通过。

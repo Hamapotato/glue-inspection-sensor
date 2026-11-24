@@ -1,5 +1,7 @@
 # GlueInspect VM Viewer
 
+> 状态：0.1.0；独立前端冒烟测试通过，不包含检测算法。
+
 独立的 VisionMaster 结果查看器。只负责：
 
 - 监视 `D:\GlueVM\results` 中最新的 `original*` 和 `caliper*` 图片；

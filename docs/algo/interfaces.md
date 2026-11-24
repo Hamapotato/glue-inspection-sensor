@@ -158,3 +158,30 @@ m06_validation:
 | 分割模型 | 默认报错；仅显式配置开发 fallback 时运行并记录降级 |
 | 标定 | 输出像素宽度，跳过毫米报警，记录 `uncalibrated` |
 | GPU | 允许 CPU，但必须重新统计耗时 |
+
+## 7. VM 结果查看器外部契约
+
+查看器是独立 WPF 前端，不引用 `algo`、分割模型或检测流水线。VM 与查看器
+之间使用两条数据通道：
+
+| 通道 | 方向 | 约定 |
+|---|---|---|
+| 输出图像 | VM -> 本地目录 | `original_YYYYMMddHHmmssfff.*`、`caliper_YYYYMMddHHmmssfff.*` |
+| TCP 结果 | VM 客户端 -> 查看器监听端 | `YYYYMMddHHmmssfff|OK` 或 `YYYYMMddHHmmssfff|NG` |
+
+默认端点为 `127.0.0.1:5000`。查看器在默认 2000 ms 窗口内分别选择最接近消息
+时间的原图和卡尺图，并要求文件写入稳定且可解码。找不到完整图片时写入缺图
+降级信息，不回退绑定旧图。
+
+历史记录号统一为 `yyyyMMddHHmmssfff`；VM 未发送时间时使用结果到达时间。
+`record.json` 至少保存：
+
+- `Sequence`：时间记录号；
+- `Verdict`：`OK` 或 `NG`；
+- `OriginalTimestamp`、`CaliperTimestamp`；
+- `OriginalSourceName`、`CaliperSourceName`；
+- `Degradations`；
+- `ReceivedAt`、`RawMessage`。
+
+完整启动参数、清理范围和验证边界见
+[VM 结果查看器](../../deployment/vm-viewer/README.md)。

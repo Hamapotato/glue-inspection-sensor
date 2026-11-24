@@ -17,17 +17,20 @@
 deployment/
 ├── visionmaster/
 │   └── <方案名>/
+│       ├── README.md       # 使用说明和当前事实边界
+│       ├── bundle.json     # 来源、正式命名、哈希和验证状态
+│       ├── solution/       # 本地 .sol 方案
+│       ├── models/         # 本地模型及配套文件
+│       └── validation/     # 本地验证图像、掩膜和标签
 └── vm-viewer/              # VM 结果前端源码、脚本和冒烟测试
     ├── README.md
+    ├── bundle.json
     ├── src/
     ├── tests/
     └── scripts/
-        ├── README.md       # 使用说明和当前事实边界
-        ├── bundle.json     # 来源、正式命名、哈希和验证状态
-        ├── solution/       # 本地 .sol 方案
-        ├── models/         # 本地模型及配套文件
-        └── validation/     # 本地验证图像、掩膜和标签
 ```
 
 方案或模型被移动、重新导出后，必须同步更新 `bundle.json` 中的路径和
 SHA-256，不能只修改文件名。
+
+`vm-viewer` 当前只入库源码、脚本、说明和冒烟测试；自包含发布产物不进入 Git。

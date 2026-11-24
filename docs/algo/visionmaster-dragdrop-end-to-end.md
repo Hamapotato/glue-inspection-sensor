@@ -34,6 +34,12 @@ flowchart LR
     M12 --> M13[13 发送数据]
 ```
 
+实际需要保存和展示结果时，还要增加两个“输出图像”模块：原图使用
+`original_YYYYMMddHHmmssfff`，卡尺检测图使用
+`caliper_YYYYMMddHHmmssfff`；M13 或通信模块向独立前端发送
+`YYYYMMddHHmmssfff|OK/NG`。完整格式和查看器启动方式见
+[VM 结果查看器](../../deployment/vm-viewer/README.md)。
+
 执行顺序是一条主线，但部分模块的数据要跨级订阅：
 
 ```text
@@ -831,6 +837,8 @@ M09 -> M10 -> M11 -> M12 -> M13
 - [ ] M11 使用逻辑与，任何一项失败都不会最终 OK；
 - [ ] M12 输出真实量测值和缺陷类型；
 - [ ] M13 能向变量、队列或通信设备发送结果；
+- [ ] 原图和卡尺图按统一时间格式输出到查看器目录；
+- [ ] TCP 结果时间与同轮输出图片时间能够匹配；
 - [ ] 未标定时明确记录 `uncalibrated`；
 - [ ] 合成图结果没有写成真实产线指标。
 
@@ -855,3 +863,4 @@ VM 和 Python 对比时必须使用同一张图、同一个模型、同一分割
 - [旋转扫描矩形量测](scanline-measurement.md)
 - [单相机标定计划](calibration-plan.md)
 - [P0 指标与数据规范](p0-spec.md)
+- [VM 结果查看器](../../deployment/vm-viewer/README.md)

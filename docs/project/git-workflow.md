@@ -112,6 +112,7 @@ git ls-remote origin refs/heads/<分支>
 | `feat/b1-b2-models` | RPN / YOLO5FL Python 实现与报告 | main |
 | `feat/host-app` | Rust 上位机 + RK3588 部署 | main |
 | `feat/train-cpp` | C++ libtorch 训练 | main |
+| `feat/vm-results-viewer` | VM 结果查看前端（WPF、TCP、时间绑定、历史和清理） | main |
 | `wip/b1-b2` | 早期未验证脚手架（只读） | 旧基线 |
 
 新增分支时同步更新本表。
