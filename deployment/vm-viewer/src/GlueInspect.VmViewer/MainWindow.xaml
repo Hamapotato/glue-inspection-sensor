@@ -33,24 +33,14 @@
                     <DockPanel>
                         <TextBlock Text="涂胶在线检测" Style="{StaticResource Title}" />
                         <TextBlock Text="  VM 结果查看器" FontSize="13" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Bottom" Margin="0,0,0,3" />
-                        <TextBlock Text="{Binding ImageCount, StringFormat=目录文件 {0} 个}" Style="{StaticResource Hint}" HorizontalAlignment="Right" />
+                        <TextBlock Text="{Binding FrameCount, StringFormat=本次运行收帧 {0}}" Style="{StaticResource Hint}" HorizontalAlignment="Right" />
                     </DockPanel>
-                    <Grid Margin="0,8,0,0">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <TextBox Text="{Binding Folder, UpdateSourceTrigger=LostFocus}" Style="{StaticResource PathBox}"
-                                 VerticalAlignment="Center" />
-                        <Button Grid.Column="1" Content="选择目录" Margin="8,0,0,0" Style="{StaticResource ToolButton}"
-                                Command="{Binding BrowseFolderCommand}" />
-                        <Button Grid.Column="2" Content="刷新" Margin="8,0,0,0" Style="{StaticResource ToolButton}"
-                                Command="{Binding RefreshCommand}" />
-                        <Button Grid.Column="3" Content="打开文件夹" Margin="8,0,0,0" Style="{StaticResource ToolButton}"
-                                Command="{Binding OpenFolderCommand}" />
-                    </Grid>
+                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                        <TextBlock Text="GIFR v1 内存帧" Foreground="#75DDF7" FontSize="12" FontWeight="SemiBold" />
+                        <TextBlock Text="  ·  原图与卡尺图同包接收  ·  OK 不落盘  ·  NG 保存 " Style="{StaticResource Hint}" />
+                        <TextBlock Text="{Binding HistoryFolder}" Style="{StaticResource Hint}"
+                                   TextTrimming="CharacterEllipsis" MaxWidth="520" />
+                    </StackPanel>
                 </StackPanel>
 
                 <StackPanel Grid.Column="2" VerticalAlignment="Center" HorizontalAlignment="Right">
@@ -140,7 +130,15 @@
                     <StackPanel>
                         <TextBlock Text="检测结论" Foreground="#D9FFFFFF" FontSize="13" />
                         <TextBlock Text="{Binding VerdictText}" Foreground="White" FontSize="54" FontWeight="Bold" Margin="0,2,0,0" />
-                        <TextBlock Text="{Binding VerdictSubText}" Foreground="#E5FFFFFF" FontSize="12" TextWrapping="Wrap" />
+                        <TextBlock Text="{Binding VerdictSubText}" Foreground="#E5FFFFFF" FontSize="13" TextWrapping="Wrap" />
+                        <Border Margin="0,12,0,0" Padding="12,9" CornerRadius="8" Background="#26FFFFFF">
+                            <StackPanel>
+                                <TextBlock Text="缺陷明细" Foreground="#D9FFFFFF" FontSize="12" />
+                                <TextBlock Text="{Binding DefectSummaryText}" Foreground="White"
+                                           FontSize="18" FontWeight="SemiBold" LineHeight="25"
+                                           TextWrapping="Wrap" Margin="0,3,0,0" />
+                            </StackPanel>
+                        </Border>
                     </StackPanel>
                 </Border>
 
@@ -238,6 +236,8 @@
                                                 <TextBlock Text="{Binding SequenceText}" FontSize="13" FontWeight="SemiBold" Foreground="#E8EDF4" />
                                                 <TextBlock Text="{Binding TimeText}" Style="{StaticResource Hint}" Margin="0,2,0,0" />
                                                 <TextBlock Text="{Binding ImageSequenceText}" Style="{StaticResource Hint}" Margin="0,1,0,0" />
+                                                <TextBlock Text="{Binding DefectSummaryText}" FontSize="13"
+                                                           Foreground="#FFB7C0" TextWrapping="Wrap" Margin="0,3,0,0" />
                                             </StackPanel>
                                             <TextBlock Grid.Column="1" Text="{Binding Verdict}" FontSize="18" FontWeight="Bold"
                                                        VerticalAlignment="Center" Margin="8,0,0,0">
@@ -279,7 +279,7 @@
         <Border Grid.Row="2" Background="#080C11" BorderBrush="{StaticResource LineBrush}" BorderThickness="0,1,0,0">
             <Grid Margin="20,0">
                 <TextBlock Text="{Binding Status}" Style="{StaticResource Hint}" VerticalAlignment="Center" />
-                <TextBlock Text="数据来源：VisionMaster  ·  前端不执行检测算法" Style="{StaticResource Hint}"
+                <TextBlock Text="数据来源：VisionMaster 内存帧  ·  OK 不写盘  ·  前端不执行检测算法" Style="{StaticResource Hint}"
                            HorizontalAlignment="Right" VerticalAlignment="Center" />
             </Grid>
         </Border>

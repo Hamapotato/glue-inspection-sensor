@@ -1,20 +1,30 @@
 # GlueInspect VM Viewer
 
-> 状态：0.1.0；独立前端冒烟测试通过，不包含检测算法。
+> 状态：0.2.0；内存帧接收和 UI 冒烟测试通过，不包含检测算法。
 
-独立的 VisionMaster 结果查看器。只负责：
+独立的 VisionMaster 内存帧查看器。只负责：
 
-- 监视 `D:\GlueVM\results` 中最新的 `original*` 和 `caliper*` 图片；
-- 展示原始图和带卡尺的检测图；
-- 在 `127.0.0.1:5000` 接收 VM 发送的 `时间|OK/NG`；
-- 每次结果自动保存原图、卡尺图和 `record.json` 到本地历史目录；
-- 在界面右侧回看历史记录并切换到实时画面；
-- 支持图片缩放、平移和适应窗口。
+- 在 `127.0.0.1:5001` 监听 VM TCP 客户端；
+- 从 GIFR v1 字节流拆帧并校验两张图片、判定和缺陷信息；
+- 把 Mono8/RGB24 原始像素直接在内存中转换为 WPF 位图；
+- 同时显示原图和卡尺检测图；
+- 把 VM 的缺陷类型代号同时显示为中文名称；
+- OK 只刷新界面，不创建图片或历史目录；
+- NG 把两张图和 `record.json` 原子保存到 `D:\GlueVM\history`；
+- 回看 NG 历史、缩放、平移和适应窗口。
 
-本程序不引用原 GlueInspect 的 Core、Vision、Inference、Pipeline 或 Storage
-项目，也不执行任何检测算法。
+程序不引用 Core、Vision、Inference、Pipeline 或 Storage，也不执行检测算法。
 
 ## 启动
+
+双击 `deployment/vm-viewer/start-viewer.cmd` 可以自动构建 Release 并启动。
+也可以在 `deployment/vm-viewer` 目录运行：
+
+```powershell
+.\scripts\run-viewer.ps1
+```
+
+源码调试方式：
 
 ```powershell
 dotnet run --project .
@@ -23,70 +33,46 @@ dotnet run --project .
 默认参数：
 
 ```text
---images D:\GlueVM\results
 --history D:\GlueVM\history
 --host 127.0.0.1
---port 5000
---match-window-ms 2000
+--port 5001
 ```
 
-默认由前端监听 5000 端口，VM 使用 TCP 客户端连接。若 VM 已配置为 TCP
-服务端，可增加 `--tcp-client`，让前端改为主动连接。
+VM 必须配置为 TCP 客户端并主动连接查看器。旧 `--images`、`--match-window-ms`
+和 `--tcp-client` 参数仍由兼容代码解析，但默认内存界面不使用目录图片。
 
 ## 通信格式
 
-VM 的两张输出图建议使用同一时间格式：
+一帧同时包含：
 
 ```text
-YYYYMMddHHmmssfff
+GIFR v1 帧头
+缺陷类型 uint16[]
+原图原始像素
+卡尺图原始像素
 ```
 
-例如：
+帧头中的判定编码：
 
 ```text
-original_20261124151438471.bmp
-caliper_20261124151438470.bmp
+0 = OK
+1 = NG
+2 = UNKNOWN
 ```
 
-两张图的毫秒值允许有少量差异。TCP 结果带上本次时间时使用：
-
-```text
-时间|OK
-时间|NG
-```
-
-例如：
-
-```text
-20261124151438471|NG
-```
-
-前端会在 `--match-window-ms` 指定的时间窗口内，分别选取最接近该时间的原图
-和卡尺图。默认窗口为 2000 ms。
-
-如果 VM 仍只发送 `OK/NG`，前端使用结果到达时间作为参考时间进行同样的匹配。
-结果先到时，前端会在时间窗口内短暂等待图片写完；窗口内仍找不到完整图片时，
-历史记录会明确标记缺图，不会回退绑定上一轮图片。
-
-旧的 `数字序号|OK/NG` 消息仍可解析，但历史记录号统一按时间生成：
-
-```text
-18|NG
-```
+查看器按整帧长度读取，不依赖一次 TCP 读取对应一帧。帧号必须递增；长度、
+行跨度和像素格式不合法时，当前连接会被关闭，VM 自动重连。
 
 ## 历史记录
 
-默认保存到 `D:\GlueVM\history\YYYYMMDD\记录号_时间\`，每次检测包含：
+只有 NG 会创建：
 
 ```text
-original.png
-caliper.png
-record.json
+D:\GlueVM\history\YYYYMMDD\记录号_接收时间\
+├── original.png
+├── caliper.png
+└── record.json
 ```
 
-`record.json` 保存时间记录号、两张图片的文件时间、OK/NG、接收时间和原始
-文件名。右侧历史列表按接收时间倒序排列，点击记录即可回看当时的图片和结论。
-
-记录号统一按时间生成，格式为 `yyyyMMddHHmmssfff`。VM 消息未携带时间时，
-使用结果到达前端的时间。界面中的“清除历史”会二次确认，然后删除历史目录中的
-绑定记录和复制图片，并清空当前 VM 输出目录顶层的支持图片文件。
+临时目录写完后再改名为正式记录，避免只保存到一半的缺陷记录。OK 帧的图片只
+存在于内存和当前界面。

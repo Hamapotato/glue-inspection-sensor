@@ -1,137 +1,157 @@
 # VM 结果查看器
 
-> 状态：0.1.0，源码构建、TCP/时间绑定/历史清理冒烟验证通过；
-> 尚未完成真实产线长时间运行和异常场景验收。
+> 状态：0.2.0。内存帧 TCP 分包、Mono8/RGB24 像素转换、双图显示、
+> OK 零落盘和 NG 原子保存均已通过源码冒烟测试；真实 VM 连续运行尚未验收。
 
-Windows WPF 前端，用于接收 VisionMaster 的 OK/NG 结果并展示、保存原图和卡尺
-检测图。本程序不引用原交付软件或本仓库的检测算法，不执行分割、量测或缺陷判定。
+Windows WPF 前端，用于接收 VisionMaster 发送的 GIFR v1 内存图像帧。程序不
+引用检测算法，不执行分割、量测或缺陷判定。
 
 ## 1. 数据链路
 
 ```text
-VisionMaster 工作流
-├── 输出图像：original_yyyyMMddHHmmssfff.bmp
-├── 输出图像：caliper_yyyyMMddHHmmssfff.bmp
-└── TCP 客户端：127.0.0.1:5000，发送 yyyyMMddHHmmssfff|OK/NG
-                              │
-                              ▼
+VisionMaster C# 脚本
+└── TCP 客户端 127.0.0.1:5001
+    └── 单帧同时包含原图、卡尺图、OK/NG、缺陷个数和缺陷类型
+                         │
+                         ▼
 VM 结果查看器
-├── 监听 TCP 5000 并解析 OK/NG
-├── 监视图片目录，按时间选择最近的原图和卡尺图
-├── 实时显示两张图片和判定
-├── 保存 record.json、原图和卡尺图到本地历史目录
-└── 提供历史回看和确认式清理
+├── 从 TCP 流连续拆出完整二进制帧
+├── 在内存中把 Mono8/RGB24 原始像素转换为 WPF 位图
+├── 实时显示两张图和判定
+├── OK：只刷新界面，不创建图片或历史目录
+└── NG：把双图和 record.json 原子写入历史目录
 ```
 
-默认路径：
+默认监听地址：
 
 ```text
-VM 输出图片：D:\GlueVM\results
-本地历史目录：D:\GlueVM\history
+127.0.0.1:5001
 ```
 
-## 2. VM 配置
-
-两个“输出图像”模块：
-
-- 原图前缀：`original`
-- 卡尺图前缀：`caliper`
-- 时间格式：`YYYYMMddHHmmssfff`
-
-通信模块：
-
-- 类型：TCP 客户端
-- 地址：`127.0.0.1:5000`
-- 建议消息：`时间|OK` 或 `时间|NG`
-- 示例：`20261124151438471|NG`
-
-前端默认在 `127.0.0.1:5000` 监听。VM 也可以只发送 `OK/NG`，此时前端使用
-结果到达时间作为匹配参考。
-
-## 3. 时间绑定与历史记录
-
-前端在默认 2000 ms 窗口内分别寻找最接近消息时间的原图和卡尺图，并要求文件
-大小和修改时间稳定、图片能够被正常解码后才绑定。窗口内找不到完整图片时，
-记录会写入缺图降级信息，不会静默绑定上一轮旧图。
-
-记录号统一按时间生成：
+默认 NG 历史目录：
 
 ```text
-yyyyMMddHHmmssfff
+D:\GlueVM\history
 ```
 
-优先使用 VM 消息时间；VM 未带时间时使用结果到达时间。历史目录结构：
+## 2. VM 侧要求
+
+VM 使用 TCP 客户端连接查看器：
+
+| 参数 | 配置 |
+|---|---|
+| 协议类型 | TCP 客户端 |
+| 目标 IP | `127.0.0.1` |
+| 目标端口 | `5001` |
+| 自动重连 | 开启 |
+| 数据上传 | 关闭 |
+
+VM 的 `caliperImage` 必须订阅“图形收集后再由输出图像模块生成的
+`OutputImage.OutImage`”，不能直接订阅图形收集模块。完整接线见
+[VisionMaster 内存图像帧传输](../../docs/algo/visionmaster-memory-frame.md)。
+
+## 3. 协议校验
+
+查看器按 `GIFR v1` 校验：
+
+- magic、协议版本和 72 字节帧头；
+- 整帧长度、缺陷类型数组长度和两张图片长度是否闭合；
+- `stride * height == image_length`；
+- `stride >= width * bytes_per_pixel`；
+- 帧号严格递增；
+- 像素格式只接受 `1=Mono8`、`2=RGB24`。
+
+TCP 是字节流，一次读取不等于一帧。查看器会持续读取直到帧头声明的完整长度，
+因此 VM 分包或粘包不会破坏后面的帧。
+
+### 3.1 缺陷类型显示
+
+查看器同时保留 VM 原始数字代号并显示中文名称：
+
+| 代号 | 中文显示 |
+|---:|---|
+| 1 | 边缘对宽度缺陷 |
+| 2 | 边缘对位置偏移 |
+| 3 | 边缘对阶梯缺陷 |
+| 4 | 边缘对断裂缺陷 |
+| 5 | 边缘对气泡缺陷 |
+
+界面上只显示中文名称，不显示括号和数字代号；`record.json` 中仍保留原始
+数字。同一种缺陷出现多次时显示次数，例如 `边缘对断裂缺陷 ×2`。未知代号显示
+为 `未知缺陷`，不会直接隐藏。映射按仓库现有 VM 4.4 核对资料记录；若现场模块
+枚举发生变化，以 VM 实际 `DefectType` 结果为准并同步修改
+`src/GlueInspect.VmViewer/Models/DefectTypeCatalog.cs`。
+
+## 4. NG 历史记录
+
+只有 `verdict=NG` 才创建磁盘记录。目录结构：
 
 ```text
 D:\GlueVM\history\YYYYMMDD\时间记录号_接收时间\
-├── original.bmp/png
-├── caliper.bmp/png
+├── original.png
+├── caliper.png
 └── record.json
 ```
 
-“清除历史”会二次确认，然后删除：
+图片和 JSON 先写入临时目录，全部成功后再改名为正式记录目录。`record.json`
+包含帧号、VM 时间戳、判定、缺陷个数、缺陷类型、接收时间和原始数据摘要。
+OK 帧不会创建目录、图片或记录。
 
-1. 历史根目录中的全部记录、绑定结果和复制图片；
-2. 当前 VM 输出目录顶层的支持图片。
-
-清理不会删除目标目录中的非图片文件或子目录内容。该操作不可撤销，被占用而无法
-删除的文件会在状态栏中报告。
-
-## 4. 本轮代码审查与修复
-
-已确认并修复：
-
-- 修正 17 位文件名时间戳解析，历史记录不再丢失图片时间；
-- 时间窗口外不再回退绑定上一轮最新图片；
-- 等待两张输出图写完并确认可解码后再显示和入库；
-- 清理与结果接收串行执行，避免清理期间重新写入记录；
-- 清理按钮增加防重复点击和二次确认；
-- 清理完成状态不再被实时刷新立即覆盖；
-- 深色界面的辅助文字和值文字统一为白色高对比显示。
+“清除历史”只删除 NG 历史目录，不清空当前内存画面。该操作不可撤销。
 
 ## 5. 构建与验证
 
-要求 Windows 和 .NET 10 SDK。只构建源码时需要 SDK；发布后的 self-contained
-程序不要求目标机器安装 .NET。
+要求 Windows 和 .NET 10 SDK。本轮只改源码，不执行封装或发布。
+
+双击下面的脚本即可自动构建 Release 并启动查看器：
+
+```text
+deployment\vm-viewer\start-viewer.cmd
+```
+
+也可以在 PowerShell 中运行：
+
+```powershell
+.\scripts\run-viewer.ps1
+```
+
+启动脚本默认使用
+`D:\WORK\.dotnet-sdk-10.0.402\dotnet.exe`；该路径不存在时会使用 `PATH` 中的
+`dotnet.exe`。如果查看器已经运行，脚本只显示现有 PID，不会重复启动或关闭窗口。
 
 ```powershell
 $dotnet = "D:\WORK\.dotnet-sdk-10.0.402\dotnet.exe"
 
 & $dotnet build .\src\GlueInspect.VmViewer\GlueInspect.VmViewer.csproj -c Release
-& $dotnet run --project .\tests\GlueInspect.VmViewer.SmokeTests -c Release
+.\scripts\test.ps1 -Dotnet $dotnet
 ```
 
-或使用脚本：
+直接运行源码：
 
 ```powershell
-.\scripts\test.ps1 -Dotnet "D:\WORK\.dotnet-sdk-10.0.402\dotnet.exe"
-.\scripts\publish.ps1 -Dotnet "D:\WORK\.dotnet-sdk-10.0.402\dotnet.exe"
+& $dotnet run --project .\src\GlueInspect.VmViewer -c Release
 ```
-
-`publish.ps1` 默认发布到 `artifacts\vm-viewer`，该目录不进入 Git。
 
 冒烟测试覆盖：
 
-- `时间|OK/NG` 的 TCP 端到端收发；
-- 相差 1 ms 的原图/卡尺图时间匹配；
-- 时间窗口外不回退旧图；
-- 正在写入的图片不被提前入库；
-- 时间记录号、图片时间和 `record.json` 保存；
-- 历史目录清理及目标目录图片清理范围。
+- 二进制帧字段和图像元数据解析；
+- TCP 分包、粘包和连续两帧接收；
+- Mono8/RGB24 到 WPF 位图的内存像素转换；
+- 缺陷类型中文映射、未知代号保留和重复类型计数；
+- OK 内存帧拒绝落盘，磁盘零文件；
+- NG 双图与 `record.json` 原子保存；
+- 旧目录链路的兼容测试。
 
-当前验证结果是“前端链路与数据管理冒烟通过”，不是检测准确率、生产节拍或
-长期稳定性验收。
-
-常规 Release 构建和 .NET `latest-recommended` 分析规则均为 0 警告、0 错误。
+Release 构建为 0 警告、0 错误。这里的通过只能证明源码链路，不代表检测精度、
+产线节拍或长时间稳定性已经验收。
 
 ## 6. 当前边界
 
-- 仅支持 Windows WPF，目标框架为 `net10.0-windows`；
-- 只负责结果接收、展示、绑定、历史保存和清理，不包含检测算法；
-- 默认 TCP 仅面向本机回环地址，没有网络认证和加密；
-- 默认时间窗口为 2000 ms，可通过 `--match-window-ms` 调整；
-- 尚未完成真实产线节拍、长时间运行、异常断电和磁盘占满测试；
-- 清理功能会删除本地数据，使用前必须确认当前输出目录和历史目录。
+- 默认入口只监听内存帧 `127.0.0.1:5001`；
+- 旧目录监听和文本 TCP 实现保留作迁移对照，但不再由默认界面启用；
+- 尚未完成真实 VM 连续运行、断线重连、缺帧和实际节拍记录；
+- 尚未完成异常断电、磁盘占满和长时间运行验收；
+- 本机回环 TCP 没有网络认证和加密。
 
 ## 7. 目录
 

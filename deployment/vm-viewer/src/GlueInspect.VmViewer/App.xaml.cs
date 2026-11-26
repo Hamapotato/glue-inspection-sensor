@@ -15,13 +15,13 @@ namespace GlueInspect.VmViewer;
     Justification = "WPF Application owns the view model for the process lifetime and disposes it in OnExit.")]
 public partial class App : Application
 {
-    private MainViewModel? _viewModel;
+    private MemoryMainViewModel? _viewModel;
 
     protected override async void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
         var options = ViewerOptions.Parse(e.Args);
-        _viewModel = new MainViewModel(options);
+        _viewModel = new MemoryMainViewModel(options);
         var window = new MainWindow { DataContext = _viewModel };
 
         await _viewModel.StartAsync();
@@ -73,13 +73,13 @@ public partial class App : Application
     }
 }
 
-/// <summary>命令行设置。默认监听 VM 客户端连接的 127.0.0.1:5000。</summary>
+/// <summary>命令行设置。默认监听 VM 内存帧客户端连接的 127.0.0.1:5001。</summary>
 public sealed record ViewerOptions
 {
     public string ImagesFolder { get; init; } = @"D:\GlueVM\results";
     public string HistoryFolder { get; init; } = @"D:\GlueVM\history";
     public string Host { get; init; } = "127.0.0.1";
-    public int Port { get; init; } = 5000;
+    public int Port { get; init; } = 5001;
     public bool PreferListen { get; init; } = true;
     public int MatchWindowMs { get; init; } = 2000;
     public string? ScreenshotPath { get; init; }
@@ -98,7 +98,7 @@ public sealed record ViewerOptions
                 : null;
         }
 
-        var port = 5000;
+        var port = 5001;
         if (map.TryGetValue("port", out var portText) && int.TryParse(portText, out var parsedPort))
             port = parsedPort;
         var screenshotDelay = 500;

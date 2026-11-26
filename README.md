@@ -27,6 +27,9 @@ GitHub：[Hamapotato/glue-inspection-sensor](https://github.com/Hamapotato/glue-
 - [x] 生成 `visiontrain-glue-binary-v5` 合成训练与导出数据
 - [x] 完成 VisionMaster 首轮方案运行、正式命名和部署资产归档
 - [x] 完成 VM 结果查看前端、TCP 通信、时间绑定、历史回看和清理
+- [x] 完成 VM 内存帧发送脚本、配置和二进制组帧冒烟测试
+- [x] 接入查看器内存帧接收、OK 零图片写入和 NG 原子保存
+- [x] 将内存帧脚本、图形输出和 TCP 接线归档到正式 `glue_m06_inspection_v1.sol`
 - [ ] 训练并部署经真实数据验证的胶条/背景分割模型
 - [ ] 完成真实相机标定、尺寸验证和缺陷验收
 
@@ -61,6 +64,7 @@ GitHub：[Hamapotato/glue-inspection-sensor](https://github.com/Hamapotato/glue-
 - [VisionMaster 部署 SOP](docs/algo/visionmaster-deployment-sop.md)
 - [VisionMaster 纯 VM 主线](docs/algo/visionmaster-pure-vm-mainline.md)
 - [VisionMaster 拖拽端到端 SOP](docs/algo/visionmaster-dragdrop-end-to-end.md)
+- [VisionMaster 内存图像帧传输](docs/algo/visionmaster-memory-frame.md)
 - [M06 首轮部署包](deployment/visionmaster/glue_m06_inspection_v1/README.md)
 - [VM 结果查看器](deployment/vm-viewer/README.md)
 - [M06 同轨迹验证数据集](docs/algo/m06-matched-validation-dataset.md)
@@ -77,6 +81,12 @@ py -3 -m unittest discover -s tests -v
 
 # VM 结果查看器冒烟测试（需要 .NET 10 SDK）
 .\deployment\vm-viewer\scripts\test.ps1
+
+# 双击或执行脚本启动查看器
+.\deployment\vm-viewer\start-viewer.cmd
+
+# VM 内存帧脚本编译和协议冒烟测试（需要 VisionMaster 4.4 和 .NET Framework）
+.\deployment\visionmaster\glue_m06_inspection_v1\scripts\test-frame-sender.ps1
 
 # 合成掩膜主线演示
 py -3 scripts/demo_scanline.py --out outputs/demo
@@ -106,3 +116,9 @@ py -3 scripts/generate_m06_validation_dataset.py `
 VM 结果查看器已完成原图/卡尺图按时间绑定、TCP OK/NG 接收、历史保存、回看和
 确认式清理的前端冒烟验证；该结果只证明前端数据链路可用，不代表检测准确率或
 产线环境已经验收。当前 48 项 Python 主线测试和前端冒烟测试均通过。
+
+正式 `glue_m06_inspection_v1.sol` 已包含内存帧脚本、通信和图形输出接线；
+VM 4.4 脚本 API 静态编译、帧字段和 OK 无缺陷明细冒烟测试通过。查看器源码
+已接入同一 TCP 二进制协议：两张图直接从内存解码显示，OK 不生成图片或历史
+记录，NG 原子写入历史目录。目前尚缺从正式方案连续运行、断线重连和实际
+节拍验证，因此不能声明整条产线链路已经验收。

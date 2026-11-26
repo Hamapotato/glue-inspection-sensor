@@ -1,6 +1,6 @@
 # 当前进度
 
-> 日期：2026-11-24
+> 日期：2026-11-27
 > 主线：胶条分割模型 + 旋转扫描矩形 + 边缘中点曲线
 
 ## 1. 本轮完成
@@ -23,6 +23,14 @@
 - 用户人工运行观察到方案可识别断胶、过宽、过窄和气泡；
 - 完成独立 VM 结果查看前端：TCP 接收 OK/NG，按时间绑定原图和卡尺图，
   保存历史并支持回看与确认式清理；
+- 新增 VM 内存图像帧发送端：C# 脚本将原图、卡尺图、判定和缺陷信息组为
+  单个 TCP 二进制帧，配置在首次执行时读取；已通过 VM 4.4 脚本 API 静态
+  编译和帧字段冒烟测试；
+- 新增查看器内存帧接收：按 GIFR v1 从 TCP 流拆帧，Mono8/RGB24 原始像素
+  直接生成 WPF 位图；OK 帧零图片写入，NG 帧原子保存双图和 `record.json`；
+- 将 `beifen-memory.sol` 整理为正式 `glue_m06_inspection_v1.sol`，同步改写
+  内部方案名，并确认方案包内包含内存帧脚本、图形输出和通信接线；
+- 查看器加入缺陷类型中文显示、纯名称显示、NG 历史中文缺陷摘要和一键启动脚本；
 - 保留单相机标定和像素到毫米换算能力；
 - 保留 VisionTrain `background/glue` 数据生成与导出能力。
 
@@ -44,7 +52,7 @@
 也可以在 VisionMaster 4.4 中打开首轮方案，加载 VM 440 CPU 分割模型，并按
 M06 同轨迹数据检查分割、边缘对和缺陷输出。
 
-结果输出和展示链路已跑通：
+旧结果输出和展示链路已跑通：
 
 ```text
 VisionMaster 输出原图、卡尺图
@@ -54,6 +62,11 @@ VisionMaster 输出原图、卡尺图
 ```
 
 前端完成的是通信与数据管理冒烟验证，不改变检测算法指标口径。
+
+正式 `.sol` 已包含 VM 内存帧发送端、图形输出和 TCP 接线，查看器源码也已
+实现二进制接收、内存显示和 NG-only 落盘。尚未完成从正式方案连续发送、
+同帧图片与判定一致性、断线重连和实际节拍验证。因此当前不能把该链路标记为
+产线验收完成。
 
 当前仍不能声明已经完成：
 
@@ -77,7 +90,9 @@ VisionMaster 输出原图、卡尺图
 | VisionTrain v5 数据 | `outputs/synthetic/visiontrain-glue-binary-v5/` | 已生成，非验收数据 |
 | M06 同轨迹验证集 | `outputs/m06-validation/glue-m06-matched-v1-100/` | 已生成，非验收数据 |
 | M06 首轮 VM 部署包 | `deployment/visionmaster/glue_m06_inspection_v1/` | 已归档，首轮人工运行 |
+| VM 内存帧发送脚本 | `deployment/visionmaster/glue_m06_inspection_v1/scripts/VmFrameSender.cs` | 静态编译和协议冒烟通过；已接入正式 `.sol` |
 | VM 结果查看前端 | `deployment/vm-viewer/` | 已完成；通信、时间绑定、历史与清理冒烟通过 |
+| 查看器内存帧接收 | `deployment/vm-viewer/src/GlueInspect.VmViewer/` | 已实现；TCP 分包、像素转换、中文缺陷和 NG-only 保存冒烟通过 |
 | 旧实现归档 | `archive/legacy-paper-algorithm/` | 已完成 |
 
 ## 4. 下一步
@@ -92,3 +107,4 @@ VisionMaster 输出原图、卡尺图
 8. 保留 Python 扫描矩形实现作为离线对照和复杂胶路后备；
 9. 纯 VM 闭环稳定后再评估外部部署适配器和性能优化。
 10. 用真实 VM 连续运行查看器，记录通信断开、图片缺帧、磁盘清理和长时运行表现。
+11. 用真实 VM 连续运行内存帧链路，核对同帧图片与判定、断线重连、缺帧和性能。

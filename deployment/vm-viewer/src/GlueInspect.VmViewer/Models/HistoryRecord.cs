@@ -15,6 +15,11 @@ public sealed class HistoryRecord
     public DateTime? CaliperTimestamp { get; init; }
     public string Verdict { get; init; } = "";
     public DateTime ReceivedAt { get; init; }
+    public string Transport { get; init; } = "legacy_directory";
+    public ulong? FrameId { get; init; }
+    public long? VmTimestampUnixMs { get; init; }
+    public int? FlawCount { get; init; }
+    public int[] DefectTypes { get; init; } = [];
     public string? RawMessage { get; init; }
     public string? OriginalSourceName { get; init; }
     public string? CaliperSourceName { get; init; }
@@ -71,6 +76,33 @@ public sealed class HistoryRecord
 
     [JsonIgnore]
     public bool HasDegradation => Degradations.Length > 0;
+
+    [JsonIgnore]
+    public string DefectTypeText => DefectTypeCatalog.Format(DefectTypes);
+
+    [JsonIgnore]
+    public string DefectSummaryText
+    {
+        get
+        {
+            if (FrameId is null)
+                return "未记录缺陷明细";
+            return (FlawCount ?? 0) > 0 && DefectTypes.Length == 0
+                ? $"缺陷 {FlawCount ?? 0} · 类型未提供"
+                : $"缺陷 {FlawCount ?? 0} · {DefectTypeText}";
+        }
+    }
+
+    [JsonIgnore]
+    public string FrameDetail
+    {
+        get
+        {
+            if (FrameId is null)
+                return "";
+            return $"内存帧 {FrameId} · {DefectSummaryText}";
+        }
+    }
 
     private string? ImagePath(string? fileName) =>
         string.IsNullOrWhiteSpace(fileName) ? null : Path.Combine(RecordDirectory, fileName);

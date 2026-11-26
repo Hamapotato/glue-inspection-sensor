@@ -34,8 +34,9 @@ outputs/
 data/raw/
 data/labels/
 
-# VisionMaster 本地二进制部署资产；说明与 bundle.json 仍可入库
+# VisionMaster 本地二进制部署资产；正式 .sol、说明与 bundle.json 可入库
 deployment/visionmaster/*/solution/*.sol
+!deployment/visionmaster/*/solution/glue_m06_inspection_v1.sol
 deployment/visionmaster/*/models/*
 deployment/visionmaster/*/validation/*
 !deployment/visionmaster/*/validation/README.md

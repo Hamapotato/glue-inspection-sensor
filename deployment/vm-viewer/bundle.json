@@ -1,55 +1,58 @@
 {
   "schema_version": 1,
   "name": "glue-vm-results-viewer",
-  "version": "0.1.0",
-  "status": "smoke_verified",
+  "version": "0.2.0",
+  "status": "memory_receiver_smoke_verified_not_live",
   "platform": "windows",
   "framework": "net10.0-windows",
   "source": "src/GlueInspect.VmViewer",
   "defaults": {
-    "images_folder": "D:\\GlueVM\\results",
     "history_folder": "D:\\GlueVM\\history",
-    "tcp_host": "127.0.0.1",
-    "tcp_port": 5000,
-    "match_window_ms": 2000
+    "frame_host": "127.0.0.1",
+    "frame_port": 5001
   },
   "vm_protocol": {
-    "role": "viewer_listens_vm_connects",
-    "transport": "TCP",
-    "preferred_message": "yyyyMMddHHmmssfff|OK",
-    "preferred_message_ng": "yyyyMMddHHmmssfff|NG",
-    "plain_ok_ng_supported": true,
-    "image_prefixes": {
-      "original": "original",
-      "caliper": "caliper"
+    "role": "viewer_listens_vm_tcp_client_connects",
+    "transport": "TCP binary frame",
+    "magic": "GIFR",
+    "version": 1,
+    "header_bytes": 72,
+    "pixel_formats": {
+      "1": "Mono8",
+      "2": "RGB24"
     }
   },
   "history": {
     "record_id_format": "yyyyMMddHHmmssfff",
+    "persist_only_ng": true,
     "record_files": [
       "record.json",
-      "original.bmp/png",
-      "caliper.bmp/png"
+      "original.png",
+      "caliper.png"
     ],
-    "clear_removes_history_and_output_images": true
+    "atomic_directory_rename": true,
+    "clear_removes_ng_history_only": true
   },
   "verification": {
     "build": "0 warnings, 0 errors",
-    "dotnet_analysis": "latest-recommended, 0 warnings, 0 errors",
     "smoke_tests": [
-      "TCP time-tagged OK/NG receive",
-      "1 ms timestamp matching",
-      "no stale-image fallback outside match window",
-      "in-progress image write rejection",
-      "time-based history record",
-      "history and output-image cleanup scope"
+      "GIFR binary frame parsing",
+      "fragmented and concatenated TCP frame receive",
+      "Mono8 and RGB24 in-memory bitmap conversion",
+      "defect type code to Chinese name mapping",
+      "OK frame creates zero disk files",
+      "NG frame atomically saves two PNG files and record.json",
+      "one-click startup script",
+      "legacy directory and text TCP compatibility"
     ],
+    "real_vm_continuous_run": false,
     "production_acceptance": false
   },
   "limitations": [
     "The viewer does not execute detection algorithms.",
+    "Real VisionMaster continuous-send and reconnect behavior has not been verified.",
     "No production accuracy, cycle-time, or long-duration stability acceptance has been completed.",
     "The default TCP endpoint is local-only and has no authentication or encryption.",
-    "Clear-history permanently deletes local history and supported output images."
+    "Clear-history permanently deletes local NG history."
   ]
 }

@@ -1,6 +1,7 @@
 using System.IO;
 using System.Globalization;
 using System.Text.Json;
+using System.Windows.Media.Imaging;
 using GlueInspect.VmViewer.Models;
 
 namespace GlueInspect.VmViewer.Services;
@@ -99,6 +100,93 @@ public sealed class HistoryStore(string rootDirectory)
         return record;
     }
 
+    /// <summary>
+    /// 只保存内存帧中的 NG；OK/UNKNOWN 不应调用此方法。
+    /// 图片和 record.json 先写入临时目录，全部完成后原子改名为正式记录目录。
+    /// </summary>
+    public async Task<HistoryRecord> SaveNgMemoryFrameAsync(
+        MemoryFrame frame,
+        CancellationToken cancellationToken = default)
+    {
+        if (frame.VerdictCode != 1)
+        {
+            throw new InvalidOperationException(
+                "仅允许持久化内存帧中的 NG 结果");
+        }
+
+        var receivedAt = DateTime.Now;
+        var frameLocalTime = frame.TimestampUtc.ToLocalTime().DateTime;
+        var dayDirectory = Path.Combine(
+            RootDirectory,
+            frameLocalTime.ToString("yyyyMMdd", CultureInfo.InvariantCulture));
+        Directory.CreateDirectory(dayDirectory);
+
+        var sequence = frameLocalTime.ToString(
+            "yyyyMMddHHmmssfff",
+            CultureInfo.InvariantCulture);
+        var temporaryDirectory = Path.Combine(
+            dayDirectory,
+            $".{sequence}.{Guid.NewGuid():N}.tmp");
+        Directory.CreateDirectory(temporaryDirectory);
+
+        try
+        {
+            var originalBitmap = MemoryImageConverter.ToBitmapSource(frame.Original);
+            var caliperBitmap = MemoryImageConverter.ToBitmapSource(frame.Caliper);
+            await Task.Run(
+                () =>
+                {
+                    SavePng(originalBitmap, Path.Combine(temporaryDirectory, "original.png"));
+                    SavePng(caliperBitmap, Path.Combine(temporaryDirectory, "caliper.png"));
+                },
+                cancellationToken);
+
+            var finalDirectory = CreateUniqueDirectory(dayDirectory, sequence, receivedAt);
+            var record = new HistoryRecord
+            {
+                Id = Path.GetRelativePath(RootDirectory, finalDirectory),
+                Sequence = sequence,
+                Verdict = frame.Verdict,
+                ReceivedAt = receivedAt,
+                Transport = "memory_frame_v1",
+                FrameId = frame.FrameId,
+                VmTimestampUnixMs = frame.TimestampUnixMs,
+                FlawCount = frame.FlawCount,
+                DefectTypes = frame.DefectTypes.ToArray(),
+                OriginalTimestamp = frameLocalTime,
+                CaliperTimestamp = frameLocalTime,
+                RawMessage =
+                    $"GIFR frame_id={frame.FrameId}; verdict={frame.Verdict}; "
+                    + $"flaw_count={frame.FlawCount}",
+                OriginalSourceName = $"memory-original-{frame.FrameId}",
+                CaliperSourceName = $"memory-caliper-{frame.FrameId}",
+                OriginalImageFile = "original.png",
+                CaliperImageFile = "caliper.png",
+                RecordDirectory = finalDirectory,
+            };
+
+            var recordJson = JsonSerializer.Serialize(record, JsonOptions);
+            await File.WriteAllTextAsync(
+                Path.Combine(temporaryDirectory, "record.json"),
+                recordJson,
+                cancellationToken);
+            Directory.Move(temporaryDirectory, finalDirectory);
+            return record;
+        }
+        catch
+        {
+            try
+            {
+                if (Directory.Exists(temporaryDirectory))
+                    Directory.Delete(temporaryDirectory, recursive: true);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+            }
+            throw;
+        }
+    }
+
     /// <summary>删除历史根目录下的全部记录目录和文件。</summary>
     public async Task<CleanupResult> ClearAllAsync(CancellationToken cancellationToken = default)
     {
@@ -178,6 +266,14 @@ public sealed class HistoryStore(string rootDirectory)
         while (Directory.Exists(candidate))
             candidate = Path.Combine(dayDirectory, $"{stem}_{suffix++}");
         return candidate;
+    }
+
+    private static void SavePng(BitmapSource bitmap, string path)
+    {
+        var encoder = new PngBitmapEncoder();
+        encoder.Frames.Add(BitmapFrame.Create(bitmap));
+        using var stream = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.None);
+        encoder.Save(stream);
     }
 
     private static async Task<bool> CopyImageAsync(

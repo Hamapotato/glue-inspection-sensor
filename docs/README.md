@@ -20,6 +20,7 @@
 | [VisionMaster 部署流程](algo/visionmaster-deployment-sop.md) | VM 4.4 加载分割模型、输出掩膜、单图验证和接入主线 |
 | [VisionMaster 纯 VM 主线](algo/visionmaster-pure-vm-mainline.md) | VM 内完成分割、掩膜、边缘对轨迹、缺陷和 OK/NG 判断 |
 | [VisionMaster 拖拽端到端 SOP](algo/visionmaster-dragdrop-end-to-end.md) | 从空方案开始，按顺序配置模块、订阅输入、连接流程并输出 OK/NG |
+| [VisionMaster 内存图像帧传输](algo/visionmaster-memory-frame.md) | C# 脚本将双图、判定和缺陷信息通过 TCP 二进制帧发送，避免逐帧落盘 |
 | [M06 同轨迹验证数据集](algo/m06-matched-validation-dataset.md) | 固定标准胶路的正常、断胶、宽窄和弯曲配对数据 |
 | [旋转扫描矩形量测](algo/scanline-measurement.md) | 沿胶条方向生成扫描窗、左右边缘点、中心曲线、断胶/宽度/弯曲判定 |
 
@@ -27,7 +28,7 @@
 
 | 文档 | 内容 |
 |---|---|
-| [M06 首轮部署包](../deployment/visionmaster/glue_m06_inspection_v1/README.md) | 正式命名的 VM 方案、VM 440 CPU 模型、M06 配套验证集和当前事实边界 |
+| [M06 首轮部署包](../deployment/visionmaster/glue_m06_inspection_v1/README.md) | 正式命名且含内存帧接线的 VM 方案、VM 440 CPU 模型、M06 配套验证集和当前事实边界 |
 | [VM 结果查看器](../deployment/vm-viewer/README.md) | 接收 VM 结果、按时间绑定双图、历史保存/回看、清理功能、构建和冒烟测试 |
 
 ## 项目与流程

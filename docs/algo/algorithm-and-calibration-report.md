@@ -23,6 +23,7 @@
 当前 VisionMaster 4.4 首轮方案使用 VM 440 CPU 分割模型，并已连同 M06 配套
 验证数据归档到
 [glue_m06_inspection_v1](../../deployment/visionmaster/glue_m06_inspection_v1/README.md)。
+正式 `.sol` 已包含原图、卡尺图、判定和缺陷信息的内存帧发送接线。
 
 ## 2. 关键设计
 
@@ -68,6 +69,8 @@ center_i = (left_i + right_i) / 2
 - VisionMaster 首轮方案中人工观察到断胶、过宽、过窄和气泡响应。
 - VM 结果查看器完成 TCP 收发、时间绑定、双图显示、历史保存/回看和确认式清理
   的冒烟验证。
+- 查看器内存帧入口完成 GIFR 分包、Mono8/RGB24 内存解码、OK 零落盘和 NG
+  原子保存的冒烟验证。
 
 算法与量测验证均为合成数据或工具模块测试，不是真实相机指标；查看器验证只
 覆盖通信和数据管理，不构成缺陷检测精度结果。
@@ -84,16 +87,16 @@ center_i = (left_i + right_i) / 2
 
 ## 5. 结果输出与查看
 
-VM 端的运行结果通过双通道送入独立前端：
+VM 端的运行结果通过单个内存帧送入独立前端：
 
 ```text
-输出图像模块：original_yyyyMMddHHmmssfff.bmp
-输出图像模块：caliper_yyyyMMddHHmmssfff.bmp
-TCP 客户端：前端监听 127.0.0.1:5000，消息为 yyyyMMddHHmmssfff|OK/NG
+C# 脚本：原图 + 卡尺图 + OK/NG + 缺陷信息 -> GIFR v1
+TCP 客户端：前端监听 127.0.0.1:5001
 ```
 
-前端在时间窗口内分别寻找最近的原图和卡尺图，要求文件写入稳定且可解码，然后
-将结果、图片时间和原始文件名写入 `record.json`。时间窗口外不回退绑定旧图。
+前端直接从 TCP 流拆帧，并把 Mono8/RGB24 原始像素在内存中转换为 WPF 位图。
+OK 帧不创建图片或历史目录；NG 帧把双图和 `record.json` 原子写入历史目录。
+发送接线已保存在正式 `.sol` 中；真实 VM 连续运行、断线重连和节拍尚未验收。
 
 实现、构建、清理边界和冒烟结果见
 [VM 结果查看器](../../deployment/vm-viewer/README.md)。

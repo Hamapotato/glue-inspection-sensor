@@ -1,13 +1,21 @@
 {
   "bundle_version": "glue-m06-inspection-v1",
   "created_at": "2026-11-22",
-  "status": "first_round_vm_run_observed",
+  "status": "memory_frame_solution_integrated_not_live_verified",
   "solution": {
     "path": "solution/glue_m06_inspection_v1.sol",
     "internal_solution_name": "glue_m06_inspection_v1",
-    "source_path": "D:\\VMProjects\\final.sol",
-    "source_sha256": "7AF1FAECEE647AEC00D7FFE4E145F84B421B855EFEB331C4C13BC95C01EC881E",
-    "sha256": "69D9C5261E632C30DD50EC7E6CA0582AAD8D8D3094AFDD652A5393E8AB76CEB4"
+    "source_path": "D:\\VMProjects\\beifen-memory.sol",
+    "source_sha256": "2CF4103302F06A76A0F94522F9B2D50FE4D6D97B8C60E97FEE1FBC17A1708268",
+    "sha256": "A6AA801BA4B09A2F3528DF3C7ADD3451C832149722374914B669E1C4AB622A1A",
+    "size_bytes": 80942027,
+    "archive_entries": 124,
+    "formalization": {
+      "source_name": "beifen-memory",
+      "formal_name": "glue_m06_inspection_v1",
+      "internal_name_rewritten": true,
+      "legacy_name_remaining": false
+    }
   },
   "model": {
     "formal_name": "glue_bg_seg_syn500_v5_vm440_cpu_v001",
@@ -21,6 +29,36 @@
       "models/glue_bg_seg_syn500_v5_vm440_cpu_v001_Nvidia.bin": "0AAB01E9E8C476956A1980E5118EE5AB5B6091A6DC26A17B25C7DA30491A040D",
       "models/glue_bg_seg_syn500_v5_vm440_cpu_v001.mvbonnx": "4E2DB5ECD4558792F9ADB8C44795753A3401E55D924B7A8673C8BFE04A16B093"
     }
+  },
+  "viewer_frame_sender": {
+    "status": "integrated_in_formal_solution_not_live_verified",
+    "solution_integrated": true,
+    "protocol_version": 1,
+    "transport": "tcp_binary_frame",
+    "tcp_endpoint": "127.0.0.1:5001",
+    "files": {
+      "scripts/VmFrameSender.cs": "3274D38A80C0A220D1651380CBCE409B32A54479FE43C0F44B06FDA89D83E816",
+      "scripts/VmFrameSenderSmokeTest.cs": "5B4320E55D9B82E91A62F4873CF6CA64AAC4A361727878D56A4A308A9D634ACA",
+      "scripts/test-frame-sender.ps1": "7E73935D3E20025F943A1E923FBE4838FB5842BA7EC136B502F62B6CAEAD9D1C",
+      "config/vm_frame_sender.ini": "CEF51BECDF4B9C4BA511D0E96BAA8D240C2B201DE60EA6D6A27225CA3952B076"
+    },
+    "verified": [
+      "formal_solution_internal_name",
+      "formal_solution_contains_vm_frame_sender",
+      "vm_4_4_script_api_compile",
+      "binary_frame_field_smoke_test",
+      "ok_frame_without_defect_details_smoke_test",
+      "viewer_binary_receiver_smoke_test",
+      "viewer_ng_only_persistence_smoke_test"
+    ],
+    "not_verified": [
+      "live_tcp_send_from_formal_solution",
+      "continuous_ok_ng_run",
+      "disconnect_and_reconnect",
+      "missing_frame_handling",
+      "viewer_long_duration_stability",
+      "end_to_end_latency"
+    ]
   },
   "validation_dataset": {
     "path": "validation/glue-m06-matched-v1-100",
